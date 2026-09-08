@@ -2,7 +2,7 @@
 
 **Companion to:** PRD.md v1
 **Document status:** Draft v1 — for engineering use (including AI coding agents) as the source of truth for implementation
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09 — backend hosting revised to phased Vercel (dev) → EC2 (production) plan
 
 > **How to use this document:** This TRD maps PRD features to concrete architecture, data models, and API contracts. Where a decision was made earlier in scoping (stack choices, third-party services), it is treated as fixed here, not re-litigated. Implementation details not specified here (exact function signatures, component structure) are left to standard engineering judgment during build — this document defines contracts and boundaries, not every line of code.
 
@@ -20,8 +20,10 @@
            ▼                                 ▼
    ┌───────────────┐                 ┌───────────────┐
    │ Cloudflare R2  │                 │  PostgreSQL    │
-   │ (photos/media) │                 │  (Neon/Railway)│
+   │ (photos/media) │                 │  (Neon)        │
    └───────────────┘                 └───────────────┘
+
+  Backend app hosting: Vercel (dev phase) → EC2 (production, post-launch)
 
   External services: Clerk (auth) · RevenueCat (subscriptions)
   · Open Food Facts / USDA FDC (packaged food data)
@@ -29,7 +31,7 @@
   · Expo Push + FCM (notifications) · PostHog (analytics) · Sentry (errors)
 ```
 
-**Repo layout (Turborepo + npm workspaces):**
+**Repo layout (Turborepo + pnpm workspaces):**
 
 ```
 /apps
@@ -44,8 +46,8 @@
 ## 2. Confirmed Stack (from prior scoping — treat as fixed)
 
 - **Mobile:** Expo (managed), NativeWind, Gluestack UI, Reanimated + Moti, Gesture Handler, Expo Router, Expo Camera/Image Picker
-- **Backend:** Node.js + Express, Prisma ORM, Zod validation, deployed on Railway or Render (not Cloudflare Workers — see PRD/earlier scoping rationale: avoids edge-runtime Prisma/connection-pooling complexity for a solo dev)
-- **Database:** PostgreSQL (Neon or Railway-managed)
+- **Backend:** Node.js + Express, Prisma ORM, Zod validation. **Hosting is phased:** Vercel for development/iteration (faster deploys than Render was giving us), migrating to EC2 for production once the app is ready to launch. Not Cloudflare Workers for either phase — see rationale in §9.
+- **Database:** PostgreSQL (Neon — chosen partly because its built-in pooled connection string is what makes the Vercel dev phase workable, see §9)
 - **Auth:** Clerk (RN SDK) — not Auth.js (web-only, wrong fit for RN client)
 - **Storage:** Cloudflare R2 (S3-compatible API) + CDN, `sharp` for server-side resize/compression on upload
 - **AI vision:** Gemini Flash 2.0 primary, GPT-4o-mini as fallback/alternative — called only for optional photo-assist, never mandatory per-meal
@@ -53,8 +55,8 @@
 - **Notifications:** Expo Notifications + Firebase Cloud Messaging
 - **Analytics/Monitoring:** PostHog (product analytics), Sentry (crash/error tracking)
 - **Widgets:** `expo-widgets` (iOS, alpha) + `react-native-android-widget` (Android) — two separate implementations, not shared code
-- **Monorepo:** Turborepo + npm workspaces
-- **CI/CD:** GitHub Actions (lint/typecheck/test) + EAS Build/Submit (mobile), Railway/Render auto-deploy on push (backend)
+- **Monorepo:** Turborepo + pnpm workspaces
+- **CI/CD:** GitHub Actions (lint/typecheck/test) + EAS Build/Submit (mobile), Vercel auto-deploy on push during dev phase → EC2 deploy pipeline (GitHub Actions → SSH/PM2 or containerized) once migrated for production
 
 ## 3. Core Data Model (Prisma schema — conceptual, not final field-level spec)
 
@@ -217,9 +219,19 @@ Generate comparison views and shareable cards **client-side**, not server-side, 
 ## 9. Environments & Deployment
 
 - **Environments:** local (Docker Compose: Postgres + API), staging, production.
-- **Backend:** Railway or Render, auto-deploy from `main` (staging) and a `production` branch/tag (prod) — exact branching model to be finalized at repo setup, but must have a staging environment before any production deploy step ships food-data or payment-related changes.
+
+**Backend hosting — phased approach:**
+
+*Phase 1 (development/iteration):* Vercel. Reasoning: faster deploy iteration loop than Render was giving us during active development. Important technical constraint to design around from day one, not discover later: Vercel runs the Express app as serverless functions, not a persistent Node process — each invocation can open its own database connection, which exhausts Postgres's connection limit fast under any concurrent load (even just you + a teammate testing simultaneously). Required setup, not optional:
+  - Use Neon's **pooled** connection string (PgBouncer-based, built in) for `DATABASE_URL` — not the direct connection string.
+  - Use the Prisma Client singleton pattern (`globalThis`) so warm function invocations reuse a client instead of creating a new one per request.
+  - Set a conservative `connection_limit` (e.g., 3–5) and a `pool_timeout` on the connection string so a spike fails fast with a clear error instead of hanging.
+  - Add `prisma generate` to the `postinstall` script so Vercel's build always has a current client.
+
+*Phase 2 (production, post-launch):* migrate to EC2. Reasoning: a persistent Node process on EC2 avoids the serverless connection-pooling workaround entirely (one long-lived process, one connection pool, managed normally by Prisma) and gives predictable cost at scale instead of per-invocation serverless pricing. Deploy via GitHub Actions → SSH deploy with PM2 (process manager, auto-restart on crash) as the simplest option, or a Dockerized deploy if we want image-based rollbacks — decide at migration time based on how the app has evolved by then. **Do not treat this migration as a same-day swap** — budget time to re-test the connection pooling behavior under a normal persistent-server model (it will behave differently, generally more simply, than the Vercel phase) and to move secrets/env config over deliberately rather than copy-pasting.
+
 - **Mobile:** EAS Build for iOS/Android binaries, EAS Submit for store submission, EAS Update for OTA JS-only patches (does not cover the widget native code — those changes require a full store resubmission).
-- **Secrets:** environment variables per environment via the hosting platform's secret manager (or Doppler if managing across Railway/EAS becomes unwieldy) — never commit API keys (Gemini, RevenueCat, Clerk, R2) to the repo.
+- **Secrets:** environment variables per environment via the hosting platform's secret manager (Vercel's env vars during Phase 1; move to a proper secret manager or Doppler at the EC2 migration since EC2 doesn't give you one for free) — never commit API keys (Gemini, RevenueCat, Clerk, R2) to the repo.
 
 ## 10. Testing Strategy (pragmatic, solo-dev scope)
 
@@ -239,3 +251,5 @@ Generate comparison views and shareable cards **client-side**, not server-side, 
 2. Photo-based food-AI accuracy is inherently limited for mixed/occluded dishes (industry-wide, not a bug you'll fully solve) — product copy and UX must set expectations accordingly (assist, not authority).
 3. IFCT2017 preset/recipe layer is a genuine data-engineering effort, not a quick integration — budget real time for building and validating the initial dish library, not just wiring up an API call.
 4. RevenueCat webhook reliability — build idempotent webhook handling (a replayed/duplicate event must not double-grant or corrupt entitlement state).
+5. Vercel serverless + Prisma connection exhaustion during the dev phase — this is a well-documented, common failure mode (not a fringe risk), mitigated by the pooled-connection-string + singleton-client setup in §9. If mysterious "too many connections" errors show up during development, check that setup first before assuming it's an application bug.
+6. Dev-to-production hosting migration (Vercel → EC2) is itself a nontrivial cutover — treat it as a scheduled piece of work with its own testing pass, not an afterthought tacked onto launch week.
