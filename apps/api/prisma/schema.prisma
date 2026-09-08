@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Goal {
+  CUT
+  BULK
+  MAINTAIN
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+enum PhotoAngle {
+  FRONT
+  SIDE
+  BACK
+}
+
+enum FoodSource {
+  BARCODE
+  PRESET
+  MANUAL
+  AI_ASSIST
+}
+
+enum MealSlot {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum Tier {
+  FREE
+  PRO
+}
+
+model User {
+  id              String   @id @default(cuid())
+  clerkId         String   @unique
+  email           String   @unique
+  createdAt       DateTime @default(now())
+  goal            Goal
+  heightCm        Int
+  currentWeightKg Float
+  targetWeightKg  Float?
+  activityLevel   ActivityLevel
+  region          String
+
+  weightEntries  WeightEntry[]
+  progressPhotos ProgressPhoto[]
+  foodLogs       FoodLog[]
+  streaks        StreakState?
+  subscription   Subscription?
+}
+
+model WeightEntry {
+  id       String   @id @default(cuid())
+  userId   String
+  weightKg Float
+  loggedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+model ProgressPhoto {
+  id                String     @id @default(cuid())
+  userId            String
+  storageKey        String
+  angle             PhotoAngle
+  weightKgAtCapture Float?
+  capturedAt        DateTime   @default(now())
+  user              User       @relation(fields: [userId], references: [id])
+}
+
+model FoodItem {
+  id             String     @id @default(cuid())
+  source         FoodSource
+  name           String
+  caloriesPer100 Float
+  proteinPer100  Float
+  carbsPer100    Float
+  fatPer100      Float
+  barcodeUpc     String?
+  presetSlug     String?
+
+  foodLogs FoodLog[]
+}
+
+model FoodLog {
+  id           String   @id @default(cuid())
+  userId       String
+  foodItemId   String
+  portionGrams Float
+  loggedAt     DateTime @default(now())
+  mealSlot     MealSlot
+  user         User     @relation(fields: [userId], references: [id])
+  foodItem     FoodItem @relation(fields: [foodItemId], references: [id])
+}
+
+model StreakState {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  currentStreak    Int       @default(0)
+  longestStreak    Int       @default(0)
+  freezesRemaining Int       @default(2)
+  lastActiveDate   DateTime?
+  user             User      @relation(fields: [userId], references: [id])
+}
+
+model Subscription {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  revenueCatId String
+  tier         Tier
+  expiresAt    DateTime?
+  user         User      @relation(fields: [userId], references: [id])
+}
+
+model WorkoutLog {
+  id           String   @id @default(cuid())
+  userId       String
+  exerciseName String
+  sets         Json
+  loggedAt     DateTime @default(now())
+}
