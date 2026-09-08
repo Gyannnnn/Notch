@@ -1,0 +1,69 @@
+1: Mobile Frontend (Client)
+
+React Native via Expo (managed workflow + EAS Build) — cross-platform, fastest path for a solo dev from a MERN background
+expo-widgets (alpha) — iOS home screen widgets/Live Activities
+react-native-android-widget — Android home screen widgets (separate library, as covered)
+NativeWind — Tailwind-syntax styling, familiar from web
+Gluestack UI — headless component base for accessibility/behavior without imposing a generic look
+React Native Reanimated + Moti — animation (Framer Motion's RN equivalent)
+React Native Gesture Handler — for the drag-to-compare progress-photo slider
+Expo Camera / Image Picker — photo capture for progress pics and food photos
+Expo Router — file-based navigation, standard in modern Expo apps
+Backend / API
+
+Node.js + Express — matches your existing MERN experience directly
+Prisma ORM — same skillset you already have
+Zod — request/response validation, and shared with the frontend via the monorepo (covered below)
+Hosted on Railway or Render (or EC2 if you want more control) — plain Node deployment, not Cloudflare Workers, for the reasons discussed
+Database & ORM
+
+PostgreSQL — managed instance via Railway/Render/Neon (Neon specifically if you want a generous free tier + branching for dev/staging)
+Prisma as the ORM layer on top
+Authentication
+
+Not Auth.js — that's a Next.js/web-specific library and doesn't fit a React Native client well
+Clerk (recommended) — has a proper RN SDK, handles email/password + Google/Apple Sign-In out of the box, saves you weeks of building session/refresh-token logic yourself
+Alternative: Supabase Auth if you'd rather self-host more of the stack, but Clerk's RN-specific tooling is more mature for this exact use case
+Food & Nutrition Data (the core of your accuracy pitch)
+
+Open Food Facts API — free, global, packaged-food barcode lookup
+USDA FoodData Central — free, US government, branded + raw food data
+IFCT2017 dataset (GitHub) — free, Indian raw-ingredient nutrition data from India's National Institute of Nutrition
+Your own "recipe layer" built on top of IFCT — dish presets (dal, rice, roti, sabzi) mapping ingredients + typical oil/ghee to a servable dish; this is custom data engineering you build, not an API you buy
+Nutritionix (optional, paid) — only if you later need deeper US restaurant/branded-food coverage beyond the free sources
+AI / Vision
+
+Gemini Flash 2.0 (recommended) — cheapest vision API by a wide margin (~$0.00003/image), used as the optional "photo-assist" pre-fill, not per-meal-mandatory
+GPT-4o-mini — solid fallback/alternative, still very cheap (~$0.00011/image)
+Use sparingly by design (assist, not required) — this is what keeps your AI bill trivial at scale, as we costed out earlier
+Storage & Media
+
+Cloudflare R2 — S3-compatible, zero egress fees, ideal for your photo-heavy usage pattern
+Sharp (Node library) — server-side image resizing/compression before storing, keeps storage and bandwidth costs down
+Cloudflare CDN — in front of R2 for fast image delivery globally
+Notifications & Engagement
+
+Expo Notifications + Firebase Cloud Messaging — push notifications (behavior-triggered reminders, not fixed schedule, per our earlier discussion)
+Deep linking via Expo Router / universal links — for progress-card shares to route back into the app when someone taps a shared link
+Monetization / Subscriptions
+
+RevenueCat — handles App Store + Google Play subscription logic in one place, free under $2.5K tracked monthly revenue, saves you from building receipt validation yourself
+Analytics & Monitoring
+
+PostHog — product analytics (funnel, retention, feature usage), has an official Expo integration and a generous free tier
+Sentry — crash reporting and error tracking, standard pairing with PostHog for Expo apps
+DevOps / Deployment / CI-CD
+
+GitHub Actions — CI (lint, type-check, test) on every push
+EAS Build + EAS Submit — cloud builds and app store submission for the Expo app
+Docker — local dev environment (Postgres + API), optional for production depending on host
+Doppler or simple .env + platform secret managers — environment/secrets management across dev/staging/prod
+Monorepo & Tooling
+
+Turborepo + npm workspaces — as discussed, mainly for the shared packages/schemas (Zod) contract between mobile and backend
+TypeScript throughout — end to end type safety across the whole stack
+That's the full picture end to end. Want me to move on to the PRD and TRD now — and did you land on Markdown or Word for those?
+
+Proposed By:
+Gyanaranjan Patra (ceo/cto)
+date: 8th September 2026
