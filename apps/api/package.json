@@ -12,11 +12,14 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
+    "@prisma/adapter-neon": "6.19.3",
     "@prisma/client": "^6.16.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "ws": "8.21.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -24,6 +27,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.9.2",
+    "@types/ws": "8.18.1",
     "prisma": "^6.16.3",
     "tsx": "^4.20.6",
     "typescript": "7.0.2"

@@ -2,9 +2,90 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// NOTE: the installed Prisma toolchain (6.19.3, see apps/api/package.json)
+// still requires `url` here — `prisma validate`/`generate`/`migrate` fail
+// without it even though `prisma.config.ts` also declares a datasource url
+// for the CLI. Do NOT remove this to silence the VS Code Prisma extension's
+// "no longer supported" warning — that warning comes from the extension's
+// bundled language server tracking Prisma ORM 7's schema format, which is
+// ahead of this project's pinned Prisma 6 toolchain. It's a cosmetic,
+// editor-only false positive; it does not affect `prisma generate`, `prisma
+// migrate`, builds, or CI. See the longer explanation in the PR/commit that
+// introduced this comment, and https://pris.ly/d/config-datasource for where
+// this is genuinely headed once we deliberately upgrade to Prisma 7.
+//
+// The app itself does NOT use this url at runtime — see src/lib/prisma.ts,
+// which connects via a Neon driver adapter instead, precisely so that a
+// future Prisma 7 upgrade (which removes this field for real) only touches
+// this file and prisma.config.ts, not application code.
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+/// A registered app user — the root entity every other table hangs off of.
+model User {
+  id          String  @id @default(cuid())
+  clerkId     String  @unique @map("clerk_id") /// External auth identity from Clerk — never store passwords ourselves
+  email       String  @unique
+  displayName String? @map("display_name")
+
+  region   Region @default(OTHER) /// Drives pricing tier + default food preset library (IN vs US)
+  timezone String /// IANA tz string (e.g. "Asia/Kolkata") — REQUIRED, not optional.
+  /// Streak day-boundaries and notification timing must use the
+  /// user's local date, not UTC, or a US user and an India user
+  /// logging at the "same UTC moment" get inconsistent streak behavior.
+
+  goal             Goal
+  heightCm         Float
+  startingWeightKg Float         @map("starting_weight_kg")
+  targetWeightKg   Float?        @map("target_weight_kg")
+  activityLevel    ActivityLevel @map("activity_level")
+
+  // Cached snapshot of the latest weigh-in, denormalized for fast dashboard reads
+  // (avoids an ORDER BY ... LIMIT 1 on every home-screen load). MUST be updated in
+  // the same database transaction as any new WeightEntry insert — see note in
+  // WeightEntry below. This is a deliberate scalability trade-off, not an oversight.
+  currentWeightKg        Float?    @map("current_weight_kg")
+  currentWeightUpdatedAt DateTime? @map("current_weight_updated_at")
+
+  dailyCalorieTarget  Int? @map("daily_calorie_target")
+  dailyProteinTargetG Int? @map("daily_protein_target_g")
+  dailyCarbsTargetG   Int? @map("daily_carbs_target_g")
+  dailyFatTargetG     Int? @map("daily_fat_target_g")
+
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+
+  // Soft delete: account deletion sets this immediately (user sees "account deleted"
+  // instantly) but a background job permanently purges the row + all cascaded data
+  // after a grace period (e.g. 30 days), giving room to recover from accidental/
+  // malicious deletion. PaymentTransaction is the one table that survives even the
+  // permanent purge — see rationale on that model.
+  deletedAt DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  weightEntries       WeightEntry[]
+  progressPhotos      ProgressPhoto[]
+  photoComparisons    PhotoComparison[]
+  foodLogs            FoodLog[]
+  foodFavorites       UserFoodFavorite[]
+  aiAssistUsage       AiAssistUsage[]
+  streakState         StreakState?
+  streakMilestones    StreakMilestone[]
+  subscription        Subscription?
+  paymentTransactions PaymentTransaction[]
+  workoutLogs         WorkoutLog[]
+  deviceTokens        DeviceToken[]
+
+  @@map("users")
+}
+
+enum Region {
+  IN
+  US
+  OTHER
 }
 
 enum Goal {
@@ -21,10 +102,109 @@ enum ActivityLevel {
   VERY_ACTIVE
 }
 
+/// Body-weight log. High-volume, append-mostly table — indexed for per-user
+/// time-range queries (trend graphs, pace calculation).
+model WeightEntry {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  weightKg Float    @map("weight_kg")
+  loggedAt DateTime @map("logged_at") /// User-local date/time of the weigh-in, not necessarily insert time
+  note     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // IMPLEMENTATION NOTE (application layer, not schema): every insert into this
+  // table must run inside a Prisma $transaction alongside the User.currentWeightKg
+  // update, so the cached value on User never drifts from the true latest entry.
+  // This is the atomicity requirement from the task brief — enforce it in the
+  // service function that creates WeightEntry rows, not just here in the schema.
+
+  @@index([userId, loggedAt])
+  @@map("weight_entries")
+}
+
+/// Progress photos. onDelete Cascade here is correct — a photo with no owning user
+/// has no reason to exist, and R2 cleanup of the actual image file happens in
+/// application code when a ProgressPhoto row is deleted (add that as a follow-up
+/// task, not part of this schema task).
+model ProgressPhoto {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  storageKey        String     @unique @map("storage_key") /// R2 object key
+  angle             PhotoAngle
+  weightKgAtCapture Float?     @map("weight_kg_at_capture") /// Snapshot, not a live FK to WeightEntry — preserves the photo's
+  /// context even if that weigh-in is later edited or deleted
+  isPrivate         Boolean    @default(true) @map("is_private")
+  capturedAt        DateTime   @map("captured_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comparisonsFrom PhotoComparison[] @relation("ComparisonFrom")
+  comparisonsTo   PhotoComparison[] @relation("ComparisonTo")
+
+  @@index([userId, angle, capturedAt]) // powers "find my best comparison photo" lookups
+  @@map("progress_photos")
+}
+
 enum PhotoAngle {
   FRONT
   SIDE
   BACK
+}
+
+/// Records each generated before/after comparison — used for the PRD success metric
+/// ("% of active users with 2+ photos logged") and for tracking share activity, since
+/// shares are this product's main organic growth channel.
+model PhotoComparison {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  fromPhotoId String        @map("from_photo_id")
+  fromPhoto   ProgressPhoto @relation("ComparisonFrom", fields: [fromPhotoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  toPhotoId   String        @map("to_photo_id")
+  toPhoto     ProgressPhoto @relation("ComparisonTo", fields: [toPhotoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  wasShared Boolean   @default(false) @map("was_shared")
+  sharedAt  DateTime? @map("shared_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("photo_comparisons")
+}
+
+/// Shared reference catalog of foods — NOT per-user data. One row per distinct
+/// packaged product or preset dish, reused across all users.
+model FoodItem {
+  id           String     @id @default(cuid())
+  source       FoodSource
+  name         String
+  brandName    String?    @map("brand_name")
+  barcodeUpc   String?    @unique @map("barcode_upc")
+  presetSlug   String?    @unique @map("preset_slug") /// References the dish key in packages/nutrition-data
+  presetRegion Region?    @map("preset_region") /// e.g. an IN-region preset for a dal variant
+
+  caloriesPer100g Float  @map("calories_per_100g")
+  proteinPer100g  Float  @map("protein_per_100g")
+  carbsPer100g    Float  @map("carbs_per_100g")
+  fatPer100g      Float  @map("fat_per_100g")
+  servingSizeG    Float? @map("serving_size_g")
+
+  verifiedSource Boolean @default(false) @map("verified_source") /// true for USDA/IFCT-sourced, false for crowd-sourced OFF entries
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  foodLogs    FoodLog[]
+  favoritedBy UserFoodFavorite[]
+
+  @@index([source])
+  @@map("food_items")
 }
 
 enum FoodSource {
@@ -34,6 +214,42 @@ enum FoodSource {
   AI_ASSIST
 }
 
+/// The core high-volume logging table. Nutrition values are SNAPSHOTTED at log time
+/// (calories/macros computed from FoodItem × portion and stored directly here) rather
+/// than always derived live from FoodItem. This matters: if a FoodItem's data is later
+/// corrected (e.g. a crowd-sourced barcode entry gets fixed), historical logs must NOT
+/// silently change — a user's Tuesday shouldn't retroactively look different because
+/// someone edited a database entry on Friday. This is why foodItemId uses onDelete
+/// SetNull, not Cascade or Restrict: losing the reference link is fine because the
+/// snapshot already has everything needed to display history correctly.
+model FoodLog {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  foodItemId String?   @map("food_item_id")
+  foodItem   FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  portionGrams   Float @map("portion_grams")
+  caloriesLogged Float @map("calories_logged") /// Snapshot values — see model doc comment
+  proteinLoggedG Float @map("protein_logged_g")
+  carbsLoggedG   Float @map("carbs_logged_g")
+  fatLoggedG     Float @map("fat_logged_g")
+
+  mealSlot  MealSlot  @map("meal_slot")
+  loggedVia LoggedVia @map("logged_via") /// analytics: which logging method users actually use
+  loggedAt  DateTime  @map("logged_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // IMPLEMENTATION NOTE: inserting a FoodLog should run in the same transaction as
+  // the StreakState update (see StreakState below) — one qualifying action per day
+  // is the streak trigger, and that update must be atomic with the log write.
+
+  @@index([userId, loggedAt])
+  @@map("food_logs")
+}
+
 enum MealSlot {
   BREAKFAST
   LUNCH
@@ -41,96 +257,191 @@ enum MealSlot {
   SNACK
 }
 
-enum Tier {
+enum LoggedVia {
+  BARCODE_SCAN
+  PRESET_TAP
+  MANUAL_ENTRY
+  AI_ASSIST
+  USUAL_REPEAT
+}
+
+/// Explicit "usuals" table for one-tap repeat logging — a dedicated table rather than
+/// computing "most frequent food" on the fly from FoodLog every time, which would get
+/// slower as a user's history grows. timesLogged is incremented atomically on each
+/// repeat log (application layer: use an atomic increment, e.g. Prisma's { increment: 1 },
+/// not a read-then-write).
+model UserFoodFavorite {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  foodItemId String   @map("food_item_id")
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  customPortionGrams Float?   @map("custom_portion_grams")
+  timesLogged        Int      @default(1) @map("times_logged")
+  lastLoggedAt       DateTime @map("last_logged_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, foodItemId])
+  @@index([userId, timesLogged])
+  @@map("user_food_favorites")
+}
+
+/// One row per AI photo-assist call. This is what makes the server-side rate limit
+/// (free vs. paid tier daily cap) enforceable and auditable — count rows for a user
+/// in the current day/period rather than trusting a client-reported counter.
+model AiAssistUsage {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  usedAt         DateTime @default(now()) @map("used_at")
+  resultAccepted Boolean? @map("result_accepted") /// did the user keep the AI's guess or override it — accuracy signal
+
+  @@index([userId, usedAt])
+  @@map("ai_assist_usage")
+}
+
+/// One-to-one with User. lastActiveLocalDate is a DATE (the user's local calendar
+/// day, computed from their timezone), not a DateTime — this is what makes streak
+/// logic correct across timezones instead of silently breaking for India-based users
+/// on a US-built system.
+model StreakState {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  currentStreak       Int      @default(0) @map("current_streak")
+  longestStreak       Int      @default(0) @map("longest_streak")
+  freezesRemaining    Int      @default(2) @map("freezes_remaining")
+  freezesResetAt      DateTime @map("freezes_reset_at")
+  lastActiveLocalDate DateTime @map("last_active_local_date") @db.Date
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("streak_states")
+}
+
+/// Records each streak-milestone reward event (e.g. every 7 days), which is what
+/// triggers the "your comparison is ready" moment described in the PRD.
+model StreakMilestone {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  streakLength        Int      @map("streak_length")
+  achievedAt          DateTime @default(now()) @map("achieved_at")
+  comparisonGenerated Boolean  @default(false) @map("comparison_generated")
+
+  @@index([userId, achievedAt])
+  @@map("streak_milestones")
+}
+
+/// Current entitlement state — the SOURCE OF TRUTH is always the RevenueCat webhook
+/// sync, never client-reported status. One-to-one with User.
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  revenueCatCustomerId String             @unique @map("revenuecat_customer_id")
+  tier                 SubscriptionTier   @default(FREE)
+  store                Store?
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionTier {
   FREE
   PRO
 }
 
-model User {
-  id              String   @id @default(cuid())
-  clerkId         String   @unique
-  email           String   @unique
-  createdAt       DateTime @default(now())
-  goal            Goal
-  heightCm        Int
-  currentWeightKg Float
-  targetWeightKg  Float?
-  activityLevel   ActivityLevel
-  region          String
-
-  weightEntries  WeightEntry[]
-  progressPhotos ProgressPhoto[]
-  foodLogs       FoodLog[]
-  streaks        StreakState?
-  subscription   Subscription?
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  GRACE_PERIOD
+  CANCELLED
 }
 
-model WeightEntry {
-  id       String   @id @default(cuid())
-  userId   String
-  weightKg Float
-  loggedAt DateTime @default(now())
-  user     User     @relation(fields: [userId], references: [id])
+enum Store {
+  APP_STORE
+  PLAY_STORE
 }
 
-model ProgressPhoto {
-  id                String     @id @default(cuid())
-  userId            String
-  storageKey        String
-  angle             PhotoAngle
-  weightKgAtCapture Float?
-  capturedAt        DateTime   @default(now())
-  user              User       @relation(fields: [userId], references: [id])
+/// Financial audit log of every RevenueCat billing event. IMPORTANT DELIBERATE
+/// DEVIATION from cascade-everything: userId uses onDelete SetNull, NOT Cascade.
+/// Payment records must survive account deletion for accounting/tax/legal reasons
+/// even when everything else about the user is purged — this table is explicitly
+/// exempt from the User soft-delete purge job mentioned above. amountCents is an
+/// integer in the smallest currency unit (never a float) — standard practice for
+/// any stored monetary value. revenueCatEventId is unique specifically to make
+/// webhook processing idempotent: a replayed webhook event must not create a
+/// duplicate row or double-apply an entitlement change.
+model PaymentTransaction {
+  id     String  @id @default(cuid())
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  revenueCatEventId String           @unique @map("revenuecat_event_id")
+  eventType         PaymentEventType @map("event_type")
+  amountCents       Int              @map("amount_cents")
+  currency          String           @db.Char(3) /// ISO 4217 currency code, e.g. "USD", "INR"
+  occurredAt        DateTime         @map("occurred_at")
+  rawPayload        Json             @map("raw_payload") /// full webhook body, kept for audit/debugging
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, occurredAt])
+  @@map("payment_transactions")
 }
 
-model FoodItem {
-  id             String     @id @default(cuid())
-  source         FoodSource
-  name           String
-  caloriesPer100 Float
-  proteinPer100  Float
-  carbsPer100    Float
-  fatPer100      Float
-  barcodeUpc     String?
-  presetSlug     String?
-
-  foodLogs FoodLog[]
+enum PaymentEventType {
+  INITIAL_PURCHASE
+  RENEWAL
+  CANCELLATION
+  REFUND
+  BILLING_ISSUE
 }
 
-model FoodLog {
-  id           String   @id @default(cuid())
-  userId       String
-  foodItemId   String
-  portionGrams Float
-  loggedAt     DateTime @default(now())
-  mealSlot     MealSlot
-  user         User     @relation(fields: [userId], references: [id])
-  foodItem     FoodItem @relation(fields: [foodItemId], references: [id])
-}
-
-model StreakState {
-  id               String    @id @default(cuid())
-  userId           String    @unique
-  currentStreak    Int       @default(0)
-  longestStreak    Int       @default(0)
-  freezesRemaining Int       @default(2)
-  lastActiveDate   DateTime?
-  user             User      @relation(fields: [userId], references: [id])
-}
-
-model Subscription {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  revenueCatId String
-  tier         Tier
-  expiresAt    DateTime?
-  user         User      @relation(fields: [userId], references: [id])
-}
-
+/// P1 feature per PRD — deliberately minimal, not a program-tracking engine.
 model WorkoutLog {
-  id           String   @id @default(cuid())
-  userId       String
-  exerciseName String
-  sets         Json
-  loggedAt     DateTime @default(now())
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  exerciseName String   @map("exercise_name")
+  sets         Json /// array of { weightKg: number, reps: number }
+  loggedAt     DateTime @map("logged_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, loggedAt])
+  @@map("workout_logs")
+}
+
+/// A push-notification-capable device registered to a user (Expo push token), used
+/// to route the behaviorally-timed reminders described in the PRD/TRD notification engine.
+model DeviceToken {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  expoPushToken String         @unique @map("expo_push_token")
+  platform      DevicePlatform
+  lastUsedAt    DateTime       @map("last_used_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("device_tokens")
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
 }
