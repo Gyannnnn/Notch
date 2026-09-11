@@ -30,17 +30,25 @@ model User {
   email       String  @unique
   displayName String? @map("display_name")
 
-  region   Region @default(OTHER) /// Drives pricing tier + default food preset library (IN vs US)
-  timezone String /// IANA tz string (e.g. "Asia/Kolkata") — REQUIRED, not optional.
-  /// Streak day-boundaries and notification timing must use the
-  /// user's local date, not UTC, or a US user and an India user
-  /// logging at the "same UTC moment" get inconsistent streak behavior.
+  region Region @default(OTHER) /// Drives pricing tier + default food preset library (IN vs US)
 
-  goal             Goal
-  heightCm         Float
-  startingWeightKg Float         @map("starting_weight_kg")
-  targetWeightKg   Float?        @map("target_weight_kg")
-  activityLevel    ActivityLevel @map("activity_level")
+  /// IANA tz string (e.g. "Asia/Kolkata"). Nullable ONLY because the Clerk
+  /// `user.created` webhook creates this row before onboarding runs and can't
+  /// know it yet — every write path past onboarding (PATCH /me) must treat it
+  /// as effectively required. Streak day-boundaries and notification timing
+  /// must use the user's local date, not UTC, or a US user and an India user
+  /// logging at the "same UTC moment" get inconsistent streak behavior.
+  timezone String?
+
+  /// The five fields below are collected during onboarding, not at Clerk
+  /// signup — the webhook only knows clerkId + email. All nullable for the
+  /// same reason as `timezone` above. `onboardingCompletedAt` (below, near
+  /// the other timestamps) flips from null once they're all filled in.
+  goal             Goal?
+  heightCm         Float?
+  startingWeightKg Float?         @map("starting_weight_kg")
+  targetWeightKg   Float?         @map("target_weight_kg")
+  activityLevel    ActivityLevel? @map("activity_level")
 
   // Cached snapshot of the latest weigh-in, denormalized for fast dashboard reads
   // (avoids an ORDER BY ... LIMIT 1 on every home-screen load). MUST be updated in

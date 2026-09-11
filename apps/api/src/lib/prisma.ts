@@ -27,7 +27,16 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const adapter = new PrismaNeon({ connectionString: databaseUrl });
+// Technical-requirement.md §9 requires a conservative connection cap under
+// the Vercel serverless dev phase (it describes this as a `connection_limit`
+// query param on DATABASE_URL, the mechanism for Prisma's non-adapter
+// client). That param is still on DATABASE_URL for documentation/parity, but
+// this driver-adapter client doesn't parse query params off the connection
+// string at all — this `max` option is the actual, functioning equivalent
+// for this Pool implementation. There's no adapter-exposed equivalent to
+// `pool_timeout` (a fail-fast acquisition timeout); flagging that gap rather
+// than guessing at a workaround.
+const adapter = new PrismaNeon({ connectionString: databaseUrl, max: 5 });
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "timezone" DROP NOT NULL,
+ALTER COLUMN "goal" DROP NOT NULL,
+ALTER COLUMN "heightCm" DROP NOT NULL,
+ALTER COLUMN "starting_weight_kg" DROP NOT NULL,
+ALTER COLUMN "activity_level" DROP NOT NULL;
