@@ -1,0 +1,58 @@
+import type { FoodLog, MacroTotals, MealSlot, User } from "@/types/domain";
+import { nextUnloggedSlot } from "./macros";
+
+const SLOT_LABELS: Record<MealSlot, string> = {
+  BREAKFAST: "breakfast",
+  LUNCH: "lunch",
+  DINNER: "dinner",
+  SNACK: "a snack",
+};
+
+interface InsightInput {
+  user: User;
+  logs: FoodLog[];
+  totals: MacroTotals;
+  hour?: number;
+}
+
+/**
+ * Picks one calm sentence driven by the day's actual numbers. Rules are ordered
+ * by usefulness and the first match wins, so only one thing is ever surfaced.
+ *
+ * Every string here is deliberately non-urgent and non-corrective: no
+ * exclamation marks, no imperatives, and nothing that frames an unlogged meal
+ * or an over-target day as a failure (PRD 10.3).
+ */
+export function pickInsight({ user, logs, totals, hour = new Date().getHours() }: InsightInput) {
+  const proteinTarget = user.dailyProteinTargetG ?? 0;
+  const calorieTarget = user.dailyCalorieTarget ?? 0;
+  const proteinLeft = Math.round(proteinTarget - totals.proteinG);
+  const caloriesLeft = Math.round(calorieTarget - totals.calories);
+  const pendingSlot = nextUnloggedSlot(logs);
+
+  if (logs.length === 0) {
+    return "Nothing logged yet today. Your usuals are one tap away.";
+  }
+
+  if (caloriesLeft < 0) {
+    return `You're ${Math.abs(caloriesLeft)} kcal past target today. Worth noting, not worth stressing.`;
+  }
+
+  if (proteinTarget > 0 && proteinLeft > 20 && pendingSlot) {
+    return `About ${proteinLeft}g of protein to go, with ${SLOT_LABELS[pendingSlot]} still to log.`;
+  }
+
+  if (proteinTarget > 0 && proteinLeft <= 0) {
+    return "Protein target met for the day.";
+  }
+
+  if (!pendingSlot && caloriesLeft > 0) {
+    return `All meals logged, ${caloriesLeft} kcal still available.`;
+  }
+
+  if (hour >= 20 && caloriesLeft > 300) {
+    return `You're tracking ${caloriesLeft} kcal under target today.`;
+  }
+
+  return `${caloriesLeft} kcal left, and you're on track for the day.`;
+}
