@@ -57,6 +57,7 @@ export function SegmentedControl<T extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(segment.value)}
+            hitSlop={{ top: 2, bottom: 2 }}
             className="fill center"
           >
             <Text variant="label-md" color={active ? "ink" : "mute"}>

@@ -39,6 +39,9 @@ export interface User {
   dailyProteinTargetG: number | null;
   dailyCarbsTargetG: number | null;
   dailyFatTargetG: number | null;
+  /** True once the user has typed their own targets, which stops the derived
+   *  ones from overwriting them when weight or activity changes. */
+  targetsCustom: boolean;
   onboardingComplete: boolean;
 }
 
@@ -125,4 +128,24 @@ export interface MacroTotals {
   proteinG: number;
   carbsG: number;
   fatG: number;
+}
+
+/**
+ * Reminder settings. Behaviourally-timed delivery (PRD 6.8) is a server
+ * concern — what the user controls here is which reminders exist at all and
+ * the window they're allowed to arrive in.
+ */
+export interface NotificationPrefs {
+  mealReminders: boolean;
+  weighInReminder: boolean;
+  streakMilestones: boolean;
+  /** Hours, 0–23. Nothing is delivered between these two. */
+  quietHoursStart: number;
+  quietHoursEnd: number;
+}
+
+export interface PrivacyPrefs {
+  photosPrivateByDefault: boolean;
+  shareIncludesStats: boolean;
+  analyticsOptOut: boolean;
 }

@@ -14,7 +14,15 @@ const DETECTION_DELAY_MS = 1600;
 
 type Phase = "framing" | "detecting" | "results";
 
-export function PhotoMode({ mealSlot, onDone }: { mealSlot: MealSlot; onDone: () => void }) {
+export function PhotoMode({
+  mealSlot,
+  dateKey,
+  onDone,
+}: {
+  mealSlot: MealSlot;
+  dateKey?: string;
+  onDone: () => void;
+}) {
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>("framing");
 
@@ -59,6 +67,7 @@ export function PhotoMode({ mealSlot, onDone }: { mealSlot: MealSlot; onDone: ()
           items={AI_DETECTION.items}
           mealSlot={mealSlot}
           loggedVia="AI_ASSIST"
+          dateKey={dateKey}
           onDone={onDone}
         />
       ) : (

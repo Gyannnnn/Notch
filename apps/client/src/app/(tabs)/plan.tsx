@@ -6,6 +6,7 @@ import { TrendChart } from "@/components/charts/TrendChart";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ListRow } from "@/components/ui/ListRow";
 import { Screen } from "@/components/ui/Screen";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Text } from "@/components/ui/Text";
@@ -50,7 +51,9 @@ export default function PlanScreen() {
         <SegmentedControl segments={RANGES} value={range} onChange={setRange} />
 
         <Card className="gap-sm">
-          <View className="row-between">
+          {/* Explicit alignment: the two stacks are different heights, and
+              row-between would centre them against each other. */}
+          <View className="row-between" style={{ alignItems: "flex-start" }}>
             <View className="gap-xxs">
               <Text variant="label-sm" color="mute">
                 Current
@@ -72,6 +75,20 @@ export default function PlanScreen() {
           <TrendChart
             points={data.points}
             formatValue={(v) => formatWeight(v, unit, 1)}
+          />
+        </Card>
+
+        <Card padded={false} className="px-md">
+          <ListRow
+            title="Daily targets"
+            subtitle={
+              user.dailyProteinTargetG
+                ? `${user.dailyProteinTargetG}g protein · ${user.dailyCarbsTargetG}g carbs · ${user.dailyFatTargetG}g fat`
+                : "Set your calories and macros"
+            }
+            value={user.dailyCalorieTarget ? `${user.dailyCalorieTarget} kcal` : "Not set"}
+            onPress={() => router.push("/(modals)/targets")}
+            showChevron
           />
         </Card>
 

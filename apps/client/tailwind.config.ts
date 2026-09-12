@@ -6,12 +6,17 @@ const px = <T extends Record<string, number>>(scale: T) =>
   Object.fromEntries(Object.entries(scale).map(([k, v]) => [k, `${v}px`]));
 
 /**
- * Composite utilities. Each one replaces a cluster of classes we would
+ * Composite shorthands. Each one replaces a cluster of classes we would
  * otherwise repeat on every screen — `center` instead of
  * `flex items-center justify-center`, and so on.
+ *
+ * Registered as components, not utilities, so that a real utility still wins:
+ * `row` sets `align-items: center`, and `className="row items-stretch"` has to
+ * end up stretched. In the utilities layer the two tie on specificity and the
+ * plugin's rule silently won, which quietly broke every alignment override.
  */
-const semantics = plugin(({ addUtilities }) => {
-  addUtilities({
+const semantics = plugin(({ addComponents }) => {
+  addComponents({
     ".center": { alignItems: "center", justifyContent: "center" },
     ".row": { flexDirection: "row", alignItems: "center" },
     ".row-between": {

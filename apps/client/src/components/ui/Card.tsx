@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
-import { Pressable, View, type ViewProps } from "react-native";
+import { View, type ViewProps } from "react-native";
 
+import { usePressScale } from "@/hooks/usePressScale";
+import { AnimatedPressable } from "@/lib/animated";
 import { cn } from "@/lib/cn";
-import { elevation } from "@/theme/tokens";
+import { curve, elevation } from "@/theme/tokens";
 
 interface CardProps extends ViewProps {
   children: ReactNode;
@@ -22,6 +24,7 @@ export function Card({
   style,
   ...rest
 }: CardProps) {
+  const press = usePressScale();
   const classes = cn(
     "rounded-lg border border-hairline bg-elevated",
     padded && "p-md",
@@ -31,19 +34,21 @@ export function Card({
 
   if (onPress) {
     return (
-      <Pressable
+      <AnimatedPressable
         accessibilityRole="button"
         onPress={onPress}
-        className={cn(classes, "active:opacity-90")}
-        style={[shadow, style]}
+        {...press.handlers}
+        className={classes}
+        style={[curve, shadow, press.style, style]}
+        {...rest}
       >
         {children}
-      </Pressable>
+      </AnimatedPressable>
     );
   }
 
   return (
-    <View className={classes} style={[shadow, style]} {...rest}>
+    <View className={classes} style={[curve, shadow, style]} {...rest}>
       {children}
     </View>
   );

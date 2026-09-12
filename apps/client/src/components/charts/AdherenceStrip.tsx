@@ -1,51 +1,54 @@
+import { useRouter } from "expo-router";
+import { useMemo } from "react";
 import { View } from "react-native";
 
+import { DayGrid } from "@/components/charts/DayGrid";
 import { Text } from "@/components/ui/Text";
-import { useStreak } from "@/hooks/data";
-import { recentDateKeys } from "@/lib/date";
+import { useAdherence } from "@/hooks/data";
+import type { AdherenceState } from "@/lib/adherence";
+import { formatShortDate } from "@/lib/date";
 import { colors } from "@/theme/tokens";
-
-type DayState = "on-track" | "over" | "under" | "empty";
 
 /**
  * A day with no data uses the plain hairline — the same neutral as any other
  * structural line, so an unlogged day is never marked as a failure.
  */
-const STATE_COLOR: Record<DayState, string> = {
+const STATE_COLOR: Record<AdherenceState, string> = {
   "on-track": colors.primary,
   over: colors.caution,
   under: colors["primary-soft"],
   empty: colors.hairline,
 };
 
-/** Derived from streak activity; real adherence arrives with GET /food-logs. */
-function stateForDay(dateKey: string, activeDates: string[]): DayState {
-  if (!activeDates.includes(dateKey)) return "empty";
-  const seed = dateKey.split("-").reduce((sum, part) => sum + Number(part), 0);
-  if (seed % 7 === 0) return "over";
-  if (seed % 5 === 0) return "under";
-  return "on-track";
-}
+const STATE_LABEL: Record<AdherenceState, string> = {
+  "on-track": "on track",
+  over: "over target",
+  under: "under target",
+  empty: "nothing logged",
+};
 
-export function AdherenceStrip({ days = 28 }: { days?: number }) {
-  const { data: streak } = useStreak();
-  const dateKeys = recentDateKeys(days);
+export function AdherenceStrip({ weeks = 4 }: { weeks?: number }) {
+  const router = useRouter();
+  const { data } = useAdherence(weeks);
+
+  const cells = useMemo(
+    () =>
+      data.map((day) => ({
+        dateKey: day.dateKey,
+        color: STATE_COLOR[day.state],
+        label: `${formatShortDate(day.dateKey)}, ${STATE_LABEL[day.state]}`,
+      })),
+    [data],
+  );
 
   return (
-    <View className="gap-xs">
-      <View className="flex-row flex-wrap gap-xxs">
-        {dateKeys.map((key) => (
-          <View
-            key={key}
-            className="rounded-xs"
-            style={{
-              width: 28,
-              height: 28,
-              backgroundColor: STATE_COLOR[stateForDay(key, streak.activeDates)],
-            }}
-          />
-        ))}
-      </View>
+    <View className="gap-sm">
+      <DayGrid
+        days={cells}
+        onPressDay={(dateKey) =>
+          router.push({ pathname: "/(tabs)/today", params: { date: dateKey } })
+        }
+      />
       <View className="row gap-md">
         <Legend label="On track" color={STATE_COLOR["on-track"]} />
         <Legend label="Over" color={STATE_COLOR.over} />

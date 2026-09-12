@@ -98,30 +98,22 @@ export const typography = {
   "button-md": { font: fonts.semibold, size: 14, leading: 18, tracking: -0.1 },
 } as const;
 
-/** iOS shadow props + Android elevation, tinted warm per DESIGN.md. */
+/**
+ * boxShadow strings rather than legacy shadow/elevation props: one value covers
+ * both platforms. Tinted to ink rather than black so shadows stay warm (DESIGN.md).
+ */
 export const elevation = {
-  whisper: {
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  raised: {
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  floating: {
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 8,
-  },
+  whisper: { boxShadow: "0 1px 2px rgba(28, 26, 23, 0.04)" },
+  raised: { boxShadow: "0 2px 8px rgba(28, 26, 23, 0.06)" },
+  floating: { boxShadow: "0 8px 24px rgba(28, 26, 23, 0.1)" },
 } as const;
+
+/**
+ * Pairs with every non-capsule radius. A continuous curve reads softer than a
+ * circular one at the same value, which is the cheapest reinforcement of the
+ * "calm rather than technical" shape language. Capsules keep the default curve.
+ */
+export const curve = { borderCurve: "continuous" } as const;
 
 export const motion = {
   instant: 120,

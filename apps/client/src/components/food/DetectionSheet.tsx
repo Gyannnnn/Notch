@@ -22,6 +22,8 @@ interface DetectionSheetProps {
   items: DetectedItem[];
   mealSlot: MealSlot;
   loggedVia: LoggedVia;
+  /** Local date key to log against; defaults to today inside the store. */
+  dateKey?: string;
   onDone: () => void;
 }
 
@@ -37,7 +39,13 @@ const MEAL_LABELS: Record<MealSlot, string> = {
  * photo assist is an assist, not an authority, and tinting a percentage green
  * would dress a guess up as a verdict.
  */
-export function DetectionSheet({ items, mealSlot, loggedVia, onDone }: DetectionSheetProps) {
+export function DetectionSheet({
+  items,
+  mealSlot,
+  loggedVia,
+  dateKey,
+  onDone,
+}: DetectionSheetProps) {
   const logFood = useLogFood();
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>(
     Object.fromEntries(items.map((i) => [i.foodItemId, true])),
@@ -51,7 +59,7 @@ export function DetectionSheet({ items, mealSlot, loggedVia, onDone }: Detection
 
   const addAll = () => {
     included.forEach((item) =>
-      logFood({ foodItemId: item.foodItemId, grams: item.grams, mealSlot, loggedVia }),
+      logFood({ foodItemId: item.foodItemId, grams: item.grams, mealSlot, loggedVia, dateKey }),
     );
     onDone();
   };

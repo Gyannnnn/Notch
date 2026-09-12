@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { Text } from "@/components/ui/Text";
 import type { MacroKey } from "@/lib/macros";
@@ -21,16 +26,30 @@ interface MacroBarProps {
 
 export function MacroBar({ macro, label, grams, target }: MacroBarProps) {
   const ratio = target > 0 ? Math.min(grams / target, 1) : 0;
-  const width = useSharedValue(0);
+  const reduced = useReducedMotion();
+  const width = useSharedValue(reduced ? ratio : 0);
 
   useEffect(() => {
-    width.value = withTiming(ratio, { duration: motion.standard });
-  }, [ratio, width]);
+    if (reduced) {
+      width.set(ratio);
+      return;
+    }
+    width.set(withTiming(ratio, { duration: motion.standard }));
+  }, [ratio, reduced, width]);
 
-  const fillStyle = useAnimatedStyle(() => ({ width: `${width.value * 100}%` }));
+  // Animating width is a layout pass, which is normally the thing to avoid — but
+  // the fill is a childless leaf inside a fixed-height track, so nothing else
+  // re-lays-out, and it keeps the pill radius that a scaleX would smear.
+  const fillStyle = useAnimatedStyle(() => ({ width: `${width.get() * 100}%` }));
 
   return (
-    <View className="gap-xxs">
+    <View
+      className="gap-xxs"
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`${label}: ${Math.round(grams)} of ${target} grams`}
+      accessibilityValue={{ min: 0, max: target, now: Math.round(grams) }}
+    >
       <Text variant="label-sm" color="mute">
         {label}
       </Text>

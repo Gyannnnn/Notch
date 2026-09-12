@@ -22,6 +22,13 @@ export default function ProgressScreen() {
     (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
   );
 
+  const photoRows: (typeof sorted[number] | null)[][] = [];
+  for (let i = 0; i < sorted.length; i += 3) {
+    const row: (typeof sorted[number] | null)[] = sorted.slice(i, i + 3);
+    while (row.length < 3) row.push(null);
+    photoRows.push(row);
+  }
+
   return (
     <Screen tabBarPadding>
       <View className="row-between pt-xs">
@@ -79,19 +86,37 @@ export default function ProgressScreen() {
             <Text variant="overline" color="mute">
               All photos
             </Text>
-            <View className="flex-row flex-wrap gap-xs">
-              {sorted.map((photo, index) => (
+            {/* Rows of three, padded out so a partial last row keeps the same
+                column width as a full one. */}
+            <View className="gap-xs">
+              {photoRows.map((row, rowIndex) => (
+                <View key={rowIndex} className="row items-start gap-xs">
+                  {row.map((photo, index) =>
+                    photo === null ? (
+                      <View key={`gap-${index}`} className="fill" />
+                    ) : (
                 <Animated.View
                   key={photo.id}
-                  entering={FadeInDown.duration(180).delay(index * 35)}
-                  style={{ width: "31.5%" }}
-                  className="gap-xxs"
+                  entering={FadeInDown.duration(180).delay((rowIndex * 3 + index) * 35)}
+                  className="fill gap-xxs"
                 >
-                  <Image
-                    source={photo.uri}
-                    style={{ width: "100%", aspectRatio: 0.75, borderRadius: 16 }}
-                    contentFit="cover"
-                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Photo from ${formatShortDate(photo.capturedAt)}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/(modals)/photo-detail",
+                        params: { id: photo.id },
+                      })
+                    }
+                    className="active:opacity-80"
+                  >
+                    <Image
+                      source={photo.uri}
+                      style={{ width: "100%", aspectRatio: 0.75, borderRadius: 16 }}
+                      contentFit="cover"
+                    />
+                  </Pressable>
                   <Text variant="body-sm" color="mute">
                     {formatShortDate(photo.capturedAt)}
                   </Text>
@@ -101,6 +126,9 @@ export default function ProgressScreen() {
                     </Text>
                   )}
                 </Animated.View>
+                    ),
+                  )}
+                </View>
               ))}
             </View>
           </View>

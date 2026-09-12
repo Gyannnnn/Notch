@@ -1,15 +1,14 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
+import { NumericHeroInput } from "@/components/ui/NumericHeroInput";
 import { Screen } from "@/components/ui/Screen";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
-import { Text } from "@/components/ui/Text";
 import { UnitToggle } from "@/components/ui/UnitToggle";
 import { useLogWeight, useUser } from "@/hooks/data";
 import { defaultUnits, kgToLb, lbToKg, type WeightUnit } from "@/lib/units";
-import { colors, fonts } from "@/theme/tokens";
 
 /** Deliberately almost empty: this is a two-tap interaction and nothing competes with the field. */
 export default function WeightEntryScreen() {
@@ -43,31 +42,10 @@ export default function WeightEntryScreen() {
       <ScreenHeader title="Weight" dismiss />
 
       <View className="fill center gap-md">
-        <View className="row items-baseline gap-xs">
-          <TextInput
-            value={value}
-            onChangeText={setValue}
-            keyboardType="decimal-pad"
-            selectTextOnFocus
-            autoFocus
-            className="text-ink"
-            style={{
-              fontFamily: fonts.bold,
-              fontSize: 56,
-              lineHeight: 60,
-              letterSpacing: -2,
-              minWidth: 150,
-              textAlign: "center",
-              fontVariant: ["tabular-nums"],
-            }}
-            placeholderTextColor={colors.faint}
-          />
-          <Text variant="heading-md" color="mute">
-            {unit}
-          </Text>
-        </View>
+        <NumericHeroInput value={value} onChangeText={setValue} suffix={unit} autoFocus />
 
         <UnitToggle
+          className="self-center"
           value={unit}
           options={[
             { value: "kg", label: "kg" },

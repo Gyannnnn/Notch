@@ -1,4 +1,5 @@
 import Feather from "@expo/vector-icons/Feather";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { FlatList, Pressable, View } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -24,7 +25,8 @@ const FILTERS: { value: FoodFilter; label: string }[] = [
  * Quick-add logs without leaving the screen so several items can go in during
  * one visit; the row confirms inline rather than navigating away.
  */
-export function SearchMode({ mealSlot }: { mealSlot: MealSlot }) {
+export function SearchMode({ mealSlot, dateKey }: { mealSlot: MealSlot; dateKey?: string }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FoodFilter>("all");
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -37,10 +39,18 @@ export function SearchMode({ mealSlot }: { mealSlot: MealSlot }) {
       grams: item.servingSizeG ?? 100,
       mealSlot,
       loggedVia: item.source === "PRESET" ? "PRESET_TAP" : "MANUAL_ENTRY",
+      dateKey,
     });
     setJustAdded(item.id);
     setTimeout(() => setJustAdded((id) => (id === item.id ? null : id)), 1200);
   };
+
+  /** The manual fallback in PRD 6.2, carrying whatever was typed as a head start. */
+  const addManually = () =>
+    router.push({
+      pathname: "/(modals)/manual-food",
+      params: { name: query.trim(), slot: mealSlot, ...(dateKey ? { date: dateKey } : {}) },
+    });
 
   return (
     <View className="fill gap-sm">
@@ -67,11 +77,31 @@ export function SearchMode({ mealSlot }: { mealSlot: MealSlot }) {
         ListEmptyComponent={
           <EmptyState
             icon="search"
-            title="No matches"
-            body="Try a different name, or add it manually."
+            title={filter === "mine" ? "No foods of your own yet" : "No matches"}
+            body={
+              filter === "mine"
+                ? "Anything you enter by hand is saved here, ready to log again."
+                : "Try a different name, or enter it yourself."
+            }
+            actionLabel="Add a food"
+            onAction={addManually}
             compact
             className="mt-lg"
           />
+        }
+        ListFooterComponent={
+          results.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={addManually}
+              className="row gap-xs py-md active:opacity-70"
+            >
+              <Feather name="edit-3" size={18} color={colors.mute} />
+              <Text variant="body-md" color="mute">
+                Can&apos;t find it? Enter it yourself
+              </Text>
+            </Pressable>
+          ) : null
         }
         renderItem={({ item }) => (
           <FoodRow

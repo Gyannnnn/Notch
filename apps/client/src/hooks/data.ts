@@ -6,11 +6,15 @@ import type {
   LoggedVia,
   MacroTotals,
   MealSlot,
+  NotificationPrefs,
   PhotoAngle,
+  PrivacyPrefs,
   ProgressPhoto,
+  User,
 } from "@/types/domain";
-import { daysBetween } from "@/lib/date";
-import { pickInsight } from "@/lib/insights";
+import { adherenceForDays, adherenceState, logsForDate, type AdherenceDay } from "@/lib/adherence";
+import { daysBetween, localDateKey, recentWeekDateKeys } from "@/lib/date";
+import { dayRecap, pickInsight } from "@/lib/insights";
 import { groupByMealSlot, nextUnloggedSlot, sumLogs } from "@/lib/macros";
 import { computePace, entriesInRange, rollingAverage, type TrendRange } from "@/lib/weightTrend";
 import { FOOD_ITEMS } from "@/mocks/foods";
@@ -20,11 +24,7 @@ import { actions, useMockState, type MockState } from "@/mocks/store";
 /**
  * Mirrors TanStack Query's result shape. Swapping these hooks for real requests
  * means changing what is inside them, not the screens that call them.
- */
-
-
-
-
+  */
 export interface Query<T> {
   data: T;
   isLoading: boolean;
@@ -42,6 +42,9 @@ const selectWeights = (s: MockState) => s.weightEntries;
 const selectPhotos = (s: MockState) => s.photos;
 const selectStreak = (s: MockState) => s.streak;
 const selectSubscription = (s: MockState) => s.subscription;
+const selectCustomFoods = (s: MockState) => s.customFoods;
+const selectNotifications = (s: MockState) => s.notifications;
+const selectPrivacy = (s: MockState) => s.privacy;
 
 export function useUser() {
   return ready(useMockState(selectUser));
@@ -55,7 +58,26 @@ export function useStreak() {
   return ready(useMockState(selectStreak));
 }
 
+export function useNotificationPrefs() {
+  return ready(useMockState(selectNotifications));
+}
+
+export function usePrivacyPrefs() {
+  return ready(useMockState(selectPrivacy));
+}
+
+function targetsFor(user: User): MacroTotals {
+  return {
+    calories: user.dailyCalorieTarget ?? 0,
+    proteinG: user.dailyProteinTargetG ?? 0,
+    carbsG: user.dailyCarbsTargetG ?? 0,
+    fatG: user.dailyFatTargetG ?? 0,
+  };
+}
+
 export interface HomeData {
+  dateKey: string;
+  isToday: boolean;
   greetingName: string;
   totals: MacroTotals;
   targets: MacroTotals;
@@ -63,23 +85,29 @@ export interface HomeData {
   logs: FoodLog[];
   mealGroups: Record<MealSlot, FoodLog[]>;
   nextSlot: MealSlot | null;
+  /** One calm line: a live prompt for today, a retrospective for a past day. */
   insight: string;
 }
 
-export function useHomeData(): Query<HomeData> {
+/**
+ * Scoped to a single calendar day. The store holds every log the account has,
+ * so the day being read is a parameter rather than an assumption — which is
+ * also what lets Home page back through history.
+ */
+export function useHomeData(dateKey: string = localDateKey()): Query<HomeData> {
   const user = useMockState(selectUser);
-  const logs = useMockState(selectLogs);
+  const allLogs = useMockState(selectLogs);
 
   return ready(
     useMemo(() => {
+      const logs = logsForDate(allLogs, dateKey);
+      const isToday = dateKey === localDateKey();
       const totals = sumLogs(logs);
-      const targets: MacroTotals = {
-        calories: user.dailyCalorieTarget ?? 0,
-        proteinG: user.dailyProteinTargetG ?? 0,
-        carbsG: user.dailyCarbsTargetG ?? 0,
-        fatG: user.dailyFatTargetG ?? 0,
-      };
+      const targets = targetsFor(user);
+
       return {
+        dateKey,
+        isToday,
         greetingName: user.displayName ?? "there",
         totals,
         targets,
@@ -87,9 +115,74 @@ export function useHomeData(): Query<HomeData> {
         logs,
         mealGroups: groupByMealSlot(logs),
         nextSlot: nextUnloggedSlot(logs),
-        insight: pickInsight({ user, logs, totals }),
+        insight: isToday
+          ? pickInsight({ user, logs, totals })
+          : dayRecap({
+              logs,
+              totals,
+              target: targets.calories,
+              state: adherenceState(totals.calories, targets.calories, logs.length > 0),
+            }),
       };
-    }, [user, logs]),
+    }, [user, allLogs, dateKey]),
+  );
+}
+
+/** A single log, for the edit screen. */
+export function useFoodLog(id: string | undefined): Query<FoodLog | null> {
+  const logs = useMockState(selectLogs);
+  return ready(useMemo(() => logs.find((log) => log.id === id) ?? null, [logs, id]));
+}
+
+/** How each day of the last `weeks` weeks landed against target, oldest first. */
+export function useAdherence(weeks = 4): Query<AdherenceDay[]> {
+  const user = useMockState(selectUser);
+  const logs = useMockState(selectLogs);
+
+  return ready(
+    useMemo(
+      () => adherenceForDays(logs, user.dailyCalorieTarget ?? 0, recentWeekDateKeys(weeks)),
+      [logs, user.dailyCalorieTarget, weeks],
+    ),
+  );
+}
+
+export interface ExportSummary {
+  email: string;
+  foodLogs: number;
+  weighIns: number;
+  photos: number;
+  /** Date key of the earliest record of any kind, or null on a new account. */
+  since: string | null;
+}
+
+/** What an export would contain, so the screen can state it rather than promise it. */
+export function useExportSummary(): Query<ExportSummary> {
+  const user = useMockState(selectUser);
+  const logs = useMockState(selectLogs);
+  const weights = useMockState(selectWeights);
+  const photos = useMockState(selectPhotos);
+
+  return ready(
+    useMemo(() => {
+      const timestamps = [
+        ...logs.map((l) => l.loggedAt),
+        ...weights.map((w) => w.loggedAt),
+        ...photos.map((p) => p.capturedAt),
+      ];
+      const earliest = timestamps.reduce<string | null>(
+        (oldest, at) => (oldest === null || at < oldest ? at : oldest),
+        null,
+      );
+
+      return {
+        email: user.email,
+        foodLogs: logs.length,
+        weighIns: weights.length,
+        photos: photos.length,
+        since: earliest === null ? null : localDateKey(earliest),
+      };
+    }, [user.email, logs, weights, photos]),
   );
 }
 
@@ -101,16 +194,18 @@ export type FoodFilter = "all" | "mine" | "presets" | "recent";
 
 export function useFoodSearch(query: string, filter: FoodFilter = "all"): Query<FoodItem[]> {
   const logs = useMockState(selectLogs);
+  const customFoods = useMockState(selectCustomFoods);
 
   return ready(
     useMemo(() => {
       const recentIds = new Set(logs.map((l) => l.foodItemId));
-      const usualIds = new Set(MOCK_USUALS.map((u) => u.foodItemId));
 
-      const byFilter = FOOD_ITEMS.filter((item) => {
+      // Foods the user typed in themselves lead the catalog: they were added
+      // because nothing in it matched.
+      const byFilter = [...customFoods, ...FOOD_ITEMS].filter((item) => {
         if (filter === "presets") return item.source === "PRESET";
         if (filter === "recent") return recentIds.has(item.id);
-        if (filter === "mine") return usualIds.has(item.id);
+        if (filter === "mine") return item.source === "MANUAL";
         return true;
       });
 
@@ -121,7 +216,7 @@ export function useFoodSearch(query: string, filter: FoodFilter = "all"): Query<
           item.name.toLowerCase().includes(q) ||
           (item.brandName?.toLowerCase().includes(q) ?? false),
       );
-    }, [query, filter, logs]),
+    }, [query, filter, logs, customFoods]),
   );
 }
 
@@ -154,6 +249,11 @@ export function useWeightTrend(range: TrendRange = "month"): Query<WeightTrend> 
 
 export function usePhotos() {
   return ready(useMockState(selectPhotos));
+}
+
+export function usePhoto(id: string | undefined): Query<ProgressPhoto | null> {
+  const photos = useMockState(selectPhotos);
+  return ready(useMemo(() => photos.find((photo) => photo.id === id) ?? null, [photos, id]));
 }
 
 export type ComparisonRange = "2w" | "1m" | "oldest";
@@ -210,8 +310,32 @@ export function useComparison(range: ComparisonRange = "1m"): Query<Comparison |
 
 export function useLogFood() {
   return useCallback(
-    (input: { foodItemId: string; grams: number; mealSlot: MealSlot; loggedVia: LoggedVia }) =>
-      actions.logFood(input),
+    (input: {
+      foodItemId: string;
+      grams: number;
+      mealSlot: MealSlot;
+      loggedVia: LoggedVia;
+      dateKey?: string;
+    }) => actions.logFood(input),
+    [],
+  );
+}
+
+export function useUpdateLog() {
+  return useCallback(
+    (id: string, patch: { portionGrams?: number; mealSlot?: MealSlot }) =>
+      actions.updateLog(id, patch),
+    [],
+  );
+}
+
+export function useRemoveLog() {
+  return useCallback((id: string) => actions.removeLog(id), []);
+}
+
+export function useCreateManualFood() {
+  return useCallback(
+    (input: Parameters<typeof actions.createManualFood>[0]) => actions.createManualFood(input),
     [],
   );
 }
@@ -224,6 +348,25 @@ export function useAddPhoto() {
   return useCallback((angle: PhotoAngle, uri: string | number) => actions.addPhoto(angle, uri), []);
 }
 
-export function useRemoveLog() {
-  return useCallback((id: string) => actions.removeLog(id), []);
+export function useRemovePhoto() {
+  return useCallback((id: string) => actions.removePhoto(id), []);
+}
+
+export function useUpdateUser() {
+  return useCallback((patch: Partial<User>) => actions.updateUser(patch), []);
+}
+
+export function useUpdateNotifications() {
+  return useCallback(
+    (patch: Partial<NotificationPrefs>) => actions.updateNotifications(patch),
+    [],
+  );
+}
+
+export function useUpdatePrivacy() {
+  return useCallback((patch: Partial<PrivacyPrefs>) => actions.updatePrivacy(patch), []);
+}
+
+export function useDeleteAccount() {
+  return useCallback(() => actions.deleteAccount(), []);
 }

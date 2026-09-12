@@ -16,7 +16,7 @@ export function SearchBar({ value, onChangeText, placeholder, autoFocus }: Searc
       <Feather name="search" size={18} color={colors.mute} />
       <TextInput
         className="fill text-ink"
-        style={{ fontFamily: fonts.regular, fontSize: 16 }}
+        style={{ fontFamily: fonts.regular, fontSize: 16, minWidth: 0 }}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

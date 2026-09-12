@@ -15,7 +15,15 @@ import type { MealSlot } from "@/types/domain";
 
 const SCAN_DELAY_MS = 1200;
 
-export function BarcodeMode({ mealSlot, onDone }: { mealSlot: MealSlot; onDone: () => void }) {
+export function BarcodeMode({
+  mealSlot,
+  dateKey,
+  onDone,
+}: {
+  mealSlot: MealSlot;
+  dateKey?: string;
+  onDone: () => void;
+}) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -54,6 +62,7 @@ export function BarcodeMode({ mealSlot, onDone }: { mealSlot: MealSlot; onDone: 
       grams,
       mealSlot,
       loggedVia: "BARCODE_SCAN",
+      dateKey,
     });
     onDone();
   };
@@ -79,7 +88,7 @@ export function BarcodeMode({ mealSlot, onDone }: { mealSlot: MealSlot; onDone: 
             </Text>
           </View>
 
-          <View className="row-between">
+          <View className="row">
             <Nutrient label="kcal" value={macros.caloriesLogged} />
             <Nutrient label="Protein" value={`${macros.proteinLoggedG}g`} />
             <Nutrient label="Carbs" value={`${macros.carbsLoggedG}g`} />
@@ -112,7 +121,7 @@ export function BarcodeMode({ mealSlot, onDone }: { mealSlot: MealSlot; onDone: 
 
 function Nutrient({ label, value }: { label: string; value: string | number }) {
   return (
-    <View className="items-center gap-xxs">
+    <View className="fill items-center gap-xxs">
       <Text variant="metric-md" tabular>
         {value}
       </Text>

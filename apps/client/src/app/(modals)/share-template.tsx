@@ -1,7 +1,7 @@
 import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Dimensions, ScrollView, Switch, View } from "react-native";
+import { Dimensions, ScrollView, View } from "react-native";
 import { captureRef } from "react-native-view-shot";
 
 import { ShareTemplate, TEMPLATES, type TemplateId } from "@/components/progress/ShareTemplates";
@@ -10,10 +10,10 @@ import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Screen } from "@/components/ui/Screen";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
+import { Switch } from "@/components/ui/Switch";
 import { Text } from "@/components/ui/Text";
 import { useComparison, useUser } from "@/hooks/data";
 import { defaultUnits } from "@/lib/units";
-import { colors } from "@/theme/tokens";
 
 type Format = "story" | "square" | "status";
 
@@ -163,12 +163,7 @@ function ToggleRow({
           {hint}
         </Text>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: colors["hairline-strong"], true: colors.primary }}
-        thumbColor={colors.elevated}
-      />
+      <Switch label={label} value={value} onValueChange={onChange} />
     </View>
   );
 }

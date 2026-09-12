@@ -27,10 +27,14 @@ export function Sparkline({ values, width = 96, height = 32 }: SparklineProps) {
     .join(" ");
   const area = `${line} L${width},${height} L0,${height} Z`;
 
+  // Decorative: the card around it already announces the weight and the trend,
+  // so a screen reader stopping here would only repeat them without the shape.
   return (
-    <Svg width={width} height={height}>
-      <Path d={area} fill={colors.ink} fillOpacity={0.06} />
-      <Path d={line} stroke={colors.ink} strokeWidth={2} fill="none" strokeLinejoin="round" />
-    </Svg>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Svg width={width} height={height}>
+        <Path d={area} fill={colors.ink} fillOpacity={0.06} />
+        <Path d={line} stroke={colors.ink} strokeWidth={2} fill="none" strokeLinejoin="round" />
+      </Svg>
+    </View>
   );
 }

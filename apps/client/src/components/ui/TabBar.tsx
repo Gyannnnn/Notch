@@ -2,13 +2,12 @@ import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AnimatedPressable } from "@/lib/animated";
 import { colors, elevation, motion } from "@/theme/tokens";
 import { Text } from "./Text";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   today: "sun",

@@ -1,12 +1,11 @@
 import Feather from "@expo/vector-icons/Feather";
-import { ActivityIndicator, Pressable, type PressableProps } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { ActivityIndicator, type PressableProps } from "react-native";
 
+import { usePressScale } from "@/hooks/usePressScale";
+import { AnimatedPressable } from "@/lib/animated";
 import { cn } from "@/lib/cn";
-import { colors, motion } from "@/theme/tokens";
+import { colors } from "@/theme/tokens";
 import { Text } from "./Text";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const VARIANT = {
   primary: { container: "bg-ink", label: "on-ink" },
@@ -36,8 +35,7 @@ export function Button({
   className,
   ...rest
 }: ButtonProps) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const press = usePressScale();
   const { container, label: labelColor } = VARIANT[variant];
   const isInert = disabled || loading;
 
@@ -45,8 +43,7 @@ export function Button({
     <AnimatedPressable
       accessibilityRole="button"
       disabled={isInert}
-      onPressIn={() => scale.set(withSpring(0.97, motion.springPress))}
-      onPressOut={() => scale.set(withSpring(1, motion.springPress))}
+      {...press.handlers}
       className={cn(
         "center row tappable rounded-pill px-lg",
         container,
@@ -54,7 +51,7 @@ export function Button({
         isInert && "opacity-50",
         className,
       )}
-      style={[animatedStyle, { minHeight: variant === "ghost" ? 44 : 52 }]}
+      style={[press.style, { minHeight: variant === "ghost" ? 44 : 52 }]}
       {...rest}
     >
       {loading ? (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Dimensions, View } from "react-native";
 import Svg, { Circle, Line, Path } from "react-native-svg";
 
 import { Text } from "@/components/ui/Text";
@@ -17,8 +17,15 @@ interface TrendChartProps {
  * dots behind it. Showing raw weight as the main line would make normal
  * water-weight swing look like progress or failure (PRD 6.3).
  */
+/**
+ * Seeded from the window so the chart draws on first paint instead of waiting a
+ * frame for onLayout — and so it still draws if onLayout never reports a width.
+ * The screen gutter and the card padding either side come to 64.
+ */
+const estimatedWidth = () => Dimensions.get("window").width - 64;
+
 export function TrendChart({ points, height = 180, formatValue }: TrendChartProps) {
-  const [width, setWidth] = useState(0);
+  const [width, setWidth] = useState(estimatedWidth);
 
   const values = points.flatMap((p) => [p.raw, p.average]);
   const min = values.length ? Math.min(...values) : 0;

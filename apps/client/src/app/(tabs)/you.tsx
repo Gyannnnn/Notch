@@ -7,30 +7,17 @@ import { Card } from "@/components/ui/Card";
 import { ListRow } from "@/components/ui/ListRow";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
+import { ACTIVITY_LABELS, GOAL_STATUS_LABELS } from "@/constants/profile";
 import { useSubscription, useUser } from "@/hooks/data";
 import { actions, getDataset } from "@/mocks/store";
 import { defaultUnits, formatHeight, formatWeight } from "@/lib/units";
-import type { ActivityLevel, Goal } from "@/types/domain";
-
-const GOAL_LABELS: Record<Goal, string> = {
-  CUT: "Cutting",
-  BULK: "Bulking",
-  MAINTAIN: "Maintaining",
-};
-
-const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  SEDENTARY: "Sedentary",
-  LIGHT: "Lightly active",
-  MODERATE: "Moderately active",
-  ACTIVE: "Active",
-  VERY_ACTIVE: "Very active",
-};
 
 export default function YouScreen() {
   const router = useRouter();
   const { data: user } = useUser();
   const { data: subscription } = useSubscription();
   const units = defaultUnits(user.region);
+  const editProfile = () => router.push("/(modals)/edit-profile");
 
   return (
     <Screen tabBarPadding>
@@ -54,14 +41,21 @@ export default function YouScreen() {
               {user.email}
             </Text>
           </View>
-          {user.goal && <Badge label={GOAL_LABELS[user.goal]} tone="positive" />}
+          {user.goal && <Badge label={GOAL_STATUS_LABELS[user.goal]} tone="positive" />}
         </Card>
 
         <Card padded={false} className="px-md">
           <ListRow
+            title="Goal"
+            value={user.goal ? GOAL_STATUS_LABELS[user.goal] : "Not set"}
+            onPress={editProfile}
+            showChevron
+          />
+          <View className="hairline-t" />
+          <ListRow
             title="Height"
             value={user.heightCm ? formatHeight(user.heightCm, units.height) : "—"}
-            onPress={() => router.push("/(auth)/onboarding/height")}
+            onPress={editProfile}
             showChevron
           />
           <View className="hairline-t" />
@@ -75,14 +69,14 @@ export default function YouScreen() {
           <ListRow
             title="Target weight"
             value={user.targetWeightKg ? formatWeight(user.targetWeightKg, units.weight) : "Not set"}
-            onPress={() => router.push("/(auth)/onboarding/target-weight")}
+            onPress={editProfile}
             showChevron
           />
           <View className="hairline-t" />
           <ListRow
             title="Activity level"
             value={user.activityLevel ? ACTIVITY_LABELS[user.activityLevel] : "—"}
-            onPress={() => router.push("/(auth)/onboarding/activity")}
+            onPress={editProfile}
             showChevron
           />
         </Card>
@@ -112,11 +106,26 @@ export default function YouScreen() {
         </Card>
 
         <Card padded={false} className="px-md">
-          <ListRow title="Notifications" onPress={() => {}} showChevron />
+          <ListRow
+            title="Notifications"
+            subtitle="Reminders and quiet hours"
+            onPress={() => router.push("/(modals)/notifications")}
+            showChevron
+          />
           <View className="hairline-t" />
-          <ListRow title="Export my data" onPress={() => {}} showChevron />
+          <ListRow
+            title="Privacy"
+            subtitle="Photo visibility and analytics"
+            onPress={() => router.push("/(modals)/privacy")}
+            showChevron
+          />
           <View className="hairline-t" />
-          <ListRow title="Privacy" onPress={() => {}} showChevron />
+          <ListRow
+            title="Export my data"
+            subtitle="A copy of your logs, weights and photos"
+            onPress={() => router.push("/(modals)/export-data")}
+            showChevron
+          />
           <View className="hairline-t" />
           <ListRow
             title="Widget preview"
@@ -151,7 +160,11 @@ export default function YouScreen() {
 
         <View className="items-center gap-xs pt-xs">
           <Button label="Sign out" variant="ghost" onPress={() => router.replace("/(auth)/welcome")} />
-          <Button label="Delete account" variant="destructive" onPress={() => {}} />
+          <Button
+            label="Delete account"
+            variant="destructive"
+            onPress={() => router.push("/(modals)/delete-account")}
+          />
         </View>
       </View>
     </Screen>

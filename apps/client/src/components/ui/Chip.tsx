@@ -16,6 +16,7 @@ export function Chip({ label, selected = false, onPress, className }: ChipProps)
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
+      hitSlop={{ top: 4, bottom: 4 }}
       className={cn(
         "center row rounded-pill border px-md",
         selected ? "border-ink bg-ink" : "border-hairline-strong bg-elevated",

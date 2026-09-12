@@ -1,4 +1,7 @@
 import "../global.css";
+// Side-effect import: registers NativeWind's className interop for Reanimated
+// components. Must run before any screen renders.
+import "@/lib/animated";
 
 // Imported per weight rather than from the package root: the root index
 // references all 14 faces, and Metro bundles every one it can reach.
