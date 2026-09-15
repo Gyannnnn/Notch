@@ -109,6 +109,43 @@ export const elevation = {
 } as const;
 
 /**
+ * The same shadows expressed with the per-platform props instead of `boxShadow`.
+ * Android reads `elevation` and ignores `shadow*`; iOS does the reverse, so one
+ * object covers both without a Platform branch.
+ *
+ * Use these — not `elevation` above — on any view whose `style` is also written
+ * by Reanimated every frame (a `press.style`, or a `useAnimatedStyle` transform
+ * or position). `boxShadow` is a composite drawable Android rebuilds from the
+ * view's outline; racing that rebuild against a Reanimated UI-thread prop write
+ * on the *same* host view is what left the tab-bar FAB rendering with no fill —
+ * invisible, still tappable — on some GPU/OEM combinations. A view that never
+ * gets a Reanimated write, however shaped, is fine on `elevation` above.
+ */
+export const shadow = {
+  whisper: {
+    elevation: 1,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+  },
+  raised: {
+    elevation: 3,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  floating: {
+    elevation: 8,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+  },
+} as const;
+
+/**
  * Pairs with every non-capsule radius. A continuous curve reads softer than a
  * circular one at the same value, which is the cheapest reinforcement of the
  * "calm rather than technical" shape language. Capsules keep the default curve.

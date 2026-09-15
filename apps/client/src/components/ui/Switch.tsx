@@ -1,7 +1,7 @@
-import { Pressable } from "react-native";
+import { Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
 
-import { colors, elevation, motion } from "@/theme/tokens";
+import { colors, motion, shadow } from "@/theme/tokens";
 
 interface SwitchProps {
   value: boolean;
@@ -48,10 +48,26 @@ export function Switch({ value, onValueChange, label, disabled }: SwitchProps) {
           trackStyle,
         ]}
       >
-        <Animated.View
-          className="rounded-full bg-elevated"
-          style={[{ width: THUMB, height: THUMB }, elevation.raised, thumbStyle]}
-        />
+        {/* The animated position (thumbStyle) and the shadow live on different
+            views. Putting `boxShadow` and a per-frame Reanimated write on the
+            same view is what made the tab-bar FAB render invisible-but-tappable
+            on Android (see TabBar.tsx); this thumb had the identical pattern, so
+            it gets the identical fix — plus the explicit half-size radius, since
+            `rounded-full` (9999px) under a shadow was the first, insufficient
+            attempt there too (DESIGN.md, tab-fab note). */}
+        <Animated.View style={[{ width: THUMB, height: THUMB }, thumbStyle]}>
+          <View
+            style={[
+              {
+                width: THUMB,
+                height: THUMB,
+                borderRadius: THUMB / 2,
+                backgroundColor: colors.elevated,
+              },
+              shadow.raised,
+            ]}
+          />
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );

@@ -10,7 +10,7 @@ import Animated, {
   withDecay,
 } from "react-native-reanimated";
 
-import { colors, elevation } from "@/theme/tokens";
+import { colors, shadow } from "@/theme/tokens";
 
 interface ComparisonSliderProps {
   beforeUri: string | number;
@@ -86,9 +86,16 @@ export function ComparisonSlider({
             className="absolute bottom-0 top-0 bg-elevated"
             style={{ width: 2, left: 21 }}
           />
+          {/* Explicit half-size radius (not `rounded-full`) and the native `shadow.*`
+              props (not the `boxShadow`-based `elevation.*`) — see the tab-fab note
+              in DESIGN.md. This view's own style is already static — the transform
+              lives on the animated ancestor above — so it only needed this swap. */}
           <View
-            className="center rounded-full bg-elevated"
-            style={[{ width: 44, height: 44 }, elevation.floating]}
+            className="center"
+            style={[
+              { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.elevated },
+              shadow.floating,
+            ]}
           >
             <Feather name="move" size={18} color={colors.ink} />
           </View>

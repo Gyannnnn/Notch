@@ -3,6 +3,7 @@ import { ScrollView, View, type ScrollViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { cn } from "@/lib/cn";
+import { spacing } from "@/theme/tokens";
 
 interface ScreenProps extends Pick<ScrollViewProps, "stickyHeaderIndices"> {
   children: ReactNode;
@@ -10,7 +11,7 @@ interface ScreenProps extends Pick<ScrollViewProps, "stickyHeaderIndices"> {
   scroll?: boolean;
   /** Adds the 16px gutter DESIGN.md mandates. Off for edge-to-edge content. */
   gutter?: boolean;
-  /** Leaves room for the tab bar so the last row isn't trapped under the FAB. */
+  /** Set true on a screen mounted under the tab bar. */
   tabBarPadding?: boolean;
   className?: string;
 }
@@ -25,7 +26,21 @@ export function Screen({
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const paddingTop = insets.top;
-  const paddingBottom = insets.bottom + (tabBarPadding ? 96 : 16);
+  /**
+   * A tab screen's own height already excludes the tab bar: expo-router's
+   * BottomTabView lays screens and the tab bar out as normal flex-column
+   * siblings (screens `flex: 1`, the bar sized to its own measured height),
+   * so the scroll area already stops flush with the bar's top edge — and
+   * that measured height already bakes in `insets.bottom` (TabBar sets it on
+   * its own root). Adding `insets.bottom` again here, on top of a large
+   * fixed guess at the bar's height, double-reserved space no scroll ever
+   * needed: on a short screen the two stacked paddings showed up as a bare
+   * band of `bg-canvas` sitting above the bar. A tab screen only needs the
+   * breathing gap DESIGN.md specifies ("Above the tab bar: reserve
+   * `{spacing.3xl}`"); a non-tab screen (no bar to exclude it) still needs
+   * the safe-area inset itself.
+   */
+  const paddingBottom = tabBarPadding ? spacing["3xl"] : insets.bottom + spacing.md;
 
   if (!scroll) {
     return (

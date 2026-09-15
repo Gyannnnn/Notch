@@ -9,7 +9,7 @@ import { useLogFood, useUsuals } from "@/hooks/data";
 import { usePressScale } from "@/hooks/usePressScale";
 import { AnimatedPressable } from "@/lib/animated";
 import type { UsualMeal } from "@/types/domain";
-import { colors, curve, elevation } from "@/theme/tokens";
+import { colors, curve, shadow } from "@/theme/tokens";
 
 /** How long the check mark stands in for the plus after a log. */
 const CONFIRM_MS = 1200;
@@ -84,8 +84,10 @@ function UsualTile({ usual, logged, onPress }: UsualTileProps) {
       {...press.handlers}
       className="justify-between rounded-lg border border-hairline bg-elevated p-sm"
       // minHeight rather than height so the tile grows with the type size
-      // instead of clipping the dish name.
-      style={[{ width: 132, minHeight: 104 }, curve, elevation.whisper, press.style]}
+      // instead of clipping the dish name. Native shadow props, not `boxShadow`:
+      // this view's style is also written by Reanimated (`press.style`) — see
+      // the `shadow` token's docblock in theme/tokens.ts.
+      style={[{ width: 132, minHeight: 104 }, curve, shadow.whisper, press.style]}
     >
       <View className="row-between">
         <Text variant="body-sm" color="mute">

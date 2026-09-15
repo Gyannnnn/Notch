@@ -2,7 +2,7 @@ import { useState } from "react";
 import { LayoutChangeEvent, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
 
-import { elevation, motion } from "@/theme/tokens";
+import { motion, shadow } from "@/theme/tokens";
 import { Text } from "./Text";
 
 export interface Segment<T extends string> {
@@ -43,10 +43,13 @@ export function SegmentedControl<T extends string>({
       onLayout={onLayout}
       accessibilityRole="tablist"
     >
+      {/* Native shadow props, not `boxShadow`: this view's style is also
+          written by Reanimated (`thumbStyle`) every frame it's sliding — see
+          the `shadow` token's docblock in theme/tokens.ts. */}
       {segmentWidth > 0 && (
         <Animated.View
           className="absolute rounded-pill bg-elevated"
-          style={[{ top: 3, bottom: 3, left: 3 }, thumbStyle, elevation.whisper]}
+          style={[{ top: 3, bottom: 3, left: 3 }, thumbStyle, shadow.whisper]}
         />
       )}
       {segments.map((segment) => {

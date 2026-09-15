@@ -4,7 +4,7 @@ import { View, type ViewProps } from "react-native";
 import { usePressScale } from "@/hooks/usePressScale";
 import { AnimatedPressable } from "@/lib/animated";
 import { cn } from "@/lib/cn";
-import { curve, elevation } from "@/theme/tokens";
+import { curve, shadow } from "@/theme/tokens";
 
 interface CardProps extends ViewProps {
   children: ReactNode;
@@ -30,7 +30,12 @@ export function Card({
     padded && "p-md",
     className,
   );
-  const shadow = raised ? elevation.raised : elevation.whisper;
+  // Native `elevation`/`shadow*` props, not the `boxShadow`-based `elevation`
+  // token: this view's own style is also written by Reanimated (`press.style`)
+  // whenever onPress is set, and combining a `boxShadow` with a per-frame
+  // Reanimated write on one view is what made the tab-bar FAB render
+  // invisible-but-tappable on Android (theme/tokens.ts, `shadow`'s docblock).
+  const cardShadow = raised ? shadow.raised : shadow.whisper;
 
   if (onPress) {
     return (
@@ -39,7 +44,7 @@ export function Card({
         onPress={onPress}
         {...press.handlers}
         className={classes}
-        style={[curve, shadow, press.style, style]}
+        style={[curve, cardShadow, press.style, style]}
         {...rest}
       >
         {children}
@@ -48,7 +53,7 @@ export function Card({
   }
 
   return (
-    <View className={classes} style={[curve, shadow, style]} {...rest}>
+    <View className={classes} style={[curve, cardShadow, style]} {...rest}>
       {children}
     </View>
   );
