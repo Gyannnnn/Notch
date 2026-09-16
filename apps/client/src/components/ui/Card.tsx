@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { View, type ViewProps } from "react-native";
 
 import { usePressScale } from "@/hooks/usePressScale";
-import { AnimatedPressable } from "@/lib/animated";
+import { MotionPressable } from "@/lib/animated";
 import { cn } from "@/lib/cn";
 import { curve, shadow } from "@/theme/tokens";
 
@@ -39,7 +39,7 @@ export function Card({
 
   if (onPress) {
     return (
-      <AnimatedPressable
+      <MotionPressable
         accessibilityRole="button"
         onPress={onPress}
         {...press.handlers}
@@ -48,7 +48,7 @@ export function Card({
         {...rest}
       >
         {children}
-      </AnimatedPressable>
+      </MotionPressable>
     );
   }
 

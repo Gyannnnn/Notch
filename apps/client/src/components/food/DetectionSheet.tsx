@@ -1,12 +1,13 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { FadeInDown } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { useLogFood } from "@/hooks/data";
+import { MotionView } from "@/lib/animated";
 import { macrosForPortion } from "@/lib/macros";
 import { foodById } from "@/mocks/foods";
 import { colors, elevation } from "@/theme/tokens";
@@ -65,7 +66,7 @@ export function DetectionSheet({
   };
 
   return (
-    <Animated.View
+    <MotionView
       entering={FadeInDown.duration(260)}
       className="gap-sm rounded-t-xl bg-elevated p-md pb-lg"
       style={elevation.floating}
@@ -120,6 +121,6 @@ export function DetectionSheet({
           className="fill"
         />
       </View>
-    </Animated.View>
+    </MotionView>
   );
 }

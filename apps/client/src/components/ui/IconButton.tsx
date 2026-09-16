@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import type { PressableProps } from "react-native";
 
 import { usePressScale } from "@/hooks/usePressScale";
-import { AnimatedPressable } from "@/lib/animated";
+import { MotionPressable } from "@/lib/animated";
 import { cn } from "@/lib/cn";
 import { colors, shadow } from "@/theme/tokens";
 
@@ -28,7 +28,7 @@ export function IconButton({ icon, disabled, className, ...rest }: IconButtonPro
   const press = usePressScale();
 
   return (
-    <AnimatedPressable
+    <MotionPressable
       accessibilityRole="button"
       disabled={disabled}
       {...press.handlers}
@@ -37,6 +37,6 @@ export function IconButton({ icon, disabled, className, ...rest }: IconButtonPro
       {...rest}
     >
       <Feather name={icon} size={20} color={colors.ink} />
-    </AnimatedPressable>
+    </MotionPressable>
   );
 }

@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { FlatList, Pressable, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { FadeIn } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/Badge";
 import { Chip } from "@/components/ui/Chip";
@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { Text } from "@/components/ui/Text";
 import { useFoodSearch, useLogFood, type FoodFilter } from "@/hooks/data";
+import { MotionView } from "@/lib/animated";
 import { macrosForPortion } from "@/lib/macros";
 import { colors } from "@/theme/tokens";
 import type { FoodItem, MealSlot } from "@/types/domain";
@@ -156,13 +157,13 @@ function FoodRow({
         style={{ width: 32, height: 32 }}
       >
         {added ? (
-          <Animated.View
+          <MotionView
             entering={FadeIn.duration(120)}
             className="center rounded-full bg-primary"
             style={{ width: 28, height: 28 }}
           >
             <Feather name="check" size={16} color={colors["on-primary"]} />
-          </Animated.View>
+          </MotionView>
         ) : (
           <Feather name="plus-circle" size={26} color={colors.ink} />
         )}

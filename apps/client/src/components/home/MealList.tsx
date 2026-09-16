@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { Card } from "@/components/ui/Card";
 import { Text } from "@/components/ui/Text";
 import { usePressScale } from "@/hooks/usePressScale";
-import { AnimatedPressable } from "@/lib/animated";
+import { MotionPressable } from "@/lib/animated";
 import type { FoodLog, MealSlot } from "@/types/domain";
 import { MEAL_SLOTS } from "@/types/domain";
 import { sumLogs } from "@/lib/macros";
@@ -89,7 +89,7 @@ function LogRow({ log, onPress }: { log: FoodLog; onPress: () => void }) {
   const press = usePressScale(ROW_SCALE);
 
   return (
-    <AnimatedPressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityLabel={`Edit ${log.name}`}
       onPress={onPress}
@@ -104,7 +104,7 @@ function LogRow({ log, onPress }: { log: FoodLog; onPress: () => void }) {
       <Text variant="body-sm" color="mute" tabular>
         {Math.round(log.caloriesLogged)}
       </Text>
-    </AnimatedPressable>
+    </MotionPressable>
   );
 }
 
@@ -120,7 +120,7 @@ function AddMealRow({
   const press = usePressScale(ROW_SCALE);
 
   return (
-    <AnimatedPressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityLabel={`Add ${label}`}
       onPress={onPress}
@@ -132,6 +132,6 @@ function AddMealRow({
       <Text variant="body-md" color={isNext ? "primary" : "mute"}>
         Add {label.toLowerCase()}
       </Text>
-    </AnimatedPressable>
+    </MotionPressable>
   );
 }

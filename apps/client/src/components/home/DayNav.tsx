@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 
 import { Text } from "@/components/ui/Text";
 import { usePressScale } from "@/hooks/usePressScale";
-import { AnimatedPressable } from "@/lib/animated";
+import { MotionPressable } from "@/lib/animated";
 import { addDays, formatDayLabel, localDateKey } from "@/lib/date";
 import { colors } from "@/theme/tokens";
 
@@ -37,7 +37,7 @@ export function DayNav({ dateKey, onChange }: DayNavProps) {
         onPress={() => step(localDateKey(addDays(dateKey, -1)))}
       />
 
-      <AnimatedPressable
+      <MotionPressable
         accessibilityRole="button"
         accessibilityLabel={isToday ? "Today" : `${formatDayLabel(dateKey)}, back to today`}
         disabled={isToday}
@@ -50,7 +50,7 @@ export function DayNav({ dateKey, onChange }: DayNavProps) {
           {formatDayLabel(dateKey)}
         </Text>
         {!isToday && <Feather name="corner-up-right" size={14} color={colors.mute} />}
-      </AnimatedPressable>
+      </MotionPressable>
 
       <Arrow
         direction="right"

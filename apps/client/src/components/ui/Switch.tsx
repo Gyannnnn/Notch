@@ -1,6 +1,7 @@
 import { Pressable, View } from "react-native";
-import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
+import { useAnimatedStyle, withTiming } from "react-native-reanimated";
 
+import { MotionView } from "@/lib/animated";
 import { colors, motion, shadow } from "@/theme/tokens";
 
 interface SwitchProps {
@@ -41,7 +42,7 @@ export function Switch({ value, onValueChange, label, disabled }: SwitchProps) {
       onPress={() => onValueChange(!value)}
       hitSlop={10}
     >
-      <Animated.View
+      <MotionView
         className="justify-center rounded-pill"
         style={[
           { width: TRACK_WIDTH, height: TRACK_HEIGHT, padding: 2, opacity: disabled ? 0.5 : 1 },
@@ -55,7 +56,7 @@ export function Switch({ value, onValueChange, label, disabled }: SwitchProps) {
             it gets the identical fix — plus the explicit half-size radius, since
             `rounded-full` (9999px) under a shadow was the first, insufficient
             attempt there too (DESIGN.md, tab-fab note). */}
-        <Animated.View style={[{ width: THUMB, height: THUMB }, thumbStyle]}>
+        <MotionView style={[{ width: THUMB, height: THUMB }, thumbStyle]}>
           <View
             style={[
               {
@@ -67,8 +68,8 @@ export function Switch({ value, onValueChange, label, disabled }: SwitchProps) {
               shadow.raised,
             ]}
           />
-        </Animated.View>
-      </Animated.View>
+        </MotionView>
+      </MotionView>
     </Pressable>
   );
 }

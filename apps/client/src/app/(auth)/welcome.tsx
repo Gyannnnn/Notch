@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { FadeIn } from "react-native-reanimated";
 
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { Text } from "@/components/ui/Text";
 import { APP_NAME } from "@/constants/app";
+import { MotionView } from "@/lib/animated";
 import { colors } from "@/theme/tokens";
 
 const SLIDES = [
@@ -34,12 +35,12 @@ export default function WelcomeScreen() {
       </View>
 
       <View className="fill justify-center gap-sm">
-        <Animated.View key={index} entering={FadeIn.duration(260)} className="gap-sm">
+        <MotionView key={index} entering={FadeIn.duration(260)} className="gap-sm">
           <Text variant="heading-lg">{slide.title}</Text>
           <Text variant="body-lg" color="body">
             {slide.body}
           </Text>
-        </Animated.View>
+        </MotionView>
       </View>
 
       <View className="gap-md pb-lg">

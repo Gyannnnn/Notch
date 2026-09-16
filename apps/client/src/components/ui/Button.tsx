@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { ActivityIndicator, type PressableProps } from "react-native";
 
 import { usePressScale } from "@/hooks/usePressScale";
-import { AnimatedPressable } from "@/lib/animated";
+import { MotionPressable } from "@/lib/animated";
 import { cn } from "@/lib/cn";
 import { colors } from "@/theme/tokens";
 import { Text } from "./Text";
@@ -40,7 +40,7 @@ export function Button({
   const isInert = disabled || loading;
 
   return (
-    <AnimatedPressable
+    <MotionPressable
       accessibilityRole="button"
       disabled={isInert}
       {...press.handlers}
@@ -71,6 +71,6 @@ export function Button({
           </Text>
         </>
       )}
-    </AnimatedPressable>
+    </MotionPressable>
   );
 }

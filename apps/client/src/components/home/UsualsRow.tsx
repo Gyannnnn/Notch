@@ -2,12 +2,12 @@ import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { FadeIn } from "react-native-reanimated";
 
 import { Text } from "@/components/ui/Text";
 import { useLogFood, useUsuals } from "@/hooks/data";
 import { usePressScale } from "@/hooks/usePressScale";
-import { AnimatedPressable } from "@/lib/animated";
+import { MotionPressable, MotionView } from "@/lib/animated";
 import type { UsualMeal } from "@/types/domain";
 import { colors, curve, shadow } from "@/theme/tokens";
 
@@ -77,7 +77,7 @@ function UsualTile({ usual, logged, onPress }: UsualTileProps) {
   const press = usePressScale();
 
   return (
-    <AnimatedPressable
+    <MotionPressable
       accessibilityRole="button"
       accessibilityLabel={logged ? `${usual.name} logged` : `Log ${usual.name}`}
       onPress={onPress}
@@ -94,13 +94,13 @@ function UsualTile({ usual, logged, onPress }: UsualTileProps) {
           {usual.portionLabel}
         </Text>
         {logged ? (
-          <Animated.View
+          <MotionView
             entering={FadeIn.duration(120)}
             className="center rounded-full bg-primary"
             style={{ width: 22, height: 22 }}
           >
             <Feather name="check" size={14} color={colors["on-primary"]} />
-          </Animated.View>
+          </MotionView>
         ) : (
           <Feather name="plus-circle" size={20} color={colors.faint} />
         )}
@@ -111,6 +111,6 @@ function UsualTile({ usual, logged, onPress }: UsualTileProps) {
       <Text variant="label-sm" color="mute" tabular>
         {usual.calories} kcal
       </Text>
-    </AnimatedPressable>
+    </MotionPressable>
   );
 }

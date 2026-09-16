@@ -50,7 +50,13 @@ export default function ComparisonScreen() {
           <SegmentedControl segments={RANGES} value={range} onChange={setRange} />
 
           {mode === "slider" ? (
-            <ComparisonSlider beforeUri={comparison.from.uri} afterUri={comparison.to.uri} />
+            <ComparisonSlider
+              key={range}
+              beforeUri={comparison.from.uri}
+              afterUri={comparison.to.uri}
+              beforeLabel={formatShortDate(comparison.from.capturedAt)}
+              afterLabel={formatShortDate(comparison.to.capturedAt)}
+            />
           ) : (
             <View className="row gap-xs">
               {[comparison.from, comparison.to].map((photo) => (

@@ -2,10 +2,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
-import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePressScale } from "@/hooks/usePressScale";
+import { MotionView } from "@/lib/animated";
 import { colors, shadow } from "@/theme/tokens";
 
 /**
@@ -159,7 +159,7 @@ function TabItem({
  * icons beside it, is that the shadow-casting view was also the view Reanimated
  * rewrites every frame: `elevation.floating` (a `boxShadow` string) and
  * `press.style` (a UI-thread `transform` write) sat in the same style array on
- * one `AnimatedPressable`. Android's box-shadow is a composite drawable rebuilt
+ * one `MotionPressable`. Android's box-shadow is a composite drawable rebuilt
  * from the view's outline; racing that rebuild against a Reanimated prop write
  * on the same host view is a known source of a drawable that never gets its
  * fill re-painted, on some GPU/OEM combinations.
@@ -184,7 +184,7 @@ function CentreAction({ onPress }: { onPress: () => void }) {
         onPress();
       }}
     >
-      <Animated.View style={press.style}>
+      <MotionView style={press.style}>
         <View
           className="center"
           style={[
@@ -199,7 +199,7 @@ function CentreAction({ onPress }: { onPress: () => void }) {
         >
           <Ionicons name="add" size={28} color={colors["on-primary"]} />
         </View>
-      </Animated.View>
+      </MotionView>
     </Pressable>
   );
 }

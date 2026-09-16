@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
+import { FadeIn, ZoomIn } from "react-native-reanimated";
 
 import { DayGrid } from "@/components/charts/DayGrid";
 import { Card } from "@/components/ui/Card";
@@ -7,6 +7,7 @@ import { Screen } from "@/components/ui/Screen";
 import { ScreenHeader } from "@/components/ui/ScreenHeader";
 import { Text } from "@/components/ui/Text";
 import { useStreak } from "@/hooks/data";
+import { MotionView } from "@/lib/animated";
 import { formatShortDate, recentWeekDateKeys } from "@/lib/date";
 import { colors, motion } from "@/theme/tokens";
 
@@ -31,18 +32,18 @@ export default function StreakScreen() {
       <ScreenHeader title="Streak" dismiss />
 
       <View className="items-center gap-xxs py-lg">
-        <Animated.View entering={ZoomIn.duration(motion.expressive)}>
+        <MotionView entering={ZoomIn.duration(motion.expressive)}>
           <Text variant="metric-hero" tabular>
             {streak.currentStreak}
           </Text>
-        </Animated.View>
+        </MotionView>
         <Text variant="label-sm" color="mute">
           {streak.currentStreak === 1 ? "day" : "days"}
         </Text>
       </View>
 
       {isMilestone && (
-        <Animated.View
+        <MotionView
           entering={FadeIn.duration(motion.expressive)}
           className="mb-md rounded-xl bg-primary-soft p-lg"
         >
@@ -50,7 +51,7 @@ export default function StreakScreen() {
           <Text variant="body-md" color="body">
             A fresh comparison is ready whenever you want to look.
           </Text>
-        </Animated.View>
+        </MotionView>
       )}
 
       <View className="row gap-xs">

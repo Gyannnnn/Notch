@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { View } from "react-native";
-import Animated, {
+import {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -8,6 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Text } from "@/components/ui/Text";
+import { MotionView } from "@/lib/animated";
 import type { MacroKey } from "@/lib/macros";
 import { colors, motion } from "@/theme/tokens";
 
@@ -60,7 +61,7 @@ export function MacroBar({ macro, label, grams, target }: MacroBarProps) {
         </Text>
       </Text>
       <View className="overflow-hidden rounded-pill bg-hairline" style={{ height: 6 }}>
-        <Animated.View
+        <MotionView
           className="h-full rounded-pill"
           style={[{ backgroundColor: MACRO_COLOR[macro] }, fillStyle]}
         />

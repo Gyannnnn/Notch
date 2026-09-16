@@ -10,7 +10,7 @@ import Animated, {
 import Svg, { Circle } from "react-native-svg";
 
 import { Text } from "@/components/ui/Text";
-import { AnimatedTextInput } from "@/lib/animated";
+import { MotionTextInput } from "@/lib/animated";
 import { colors, fonts, motion, typography } from "@/theme/tokens";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -135,7 +135,7 @@ export function CalorieRing({
         />
       </Svg>
       <View className="center" importantForAccessibility="no-hide-descendants">
-        <AnimatedTextInput
+        <MotionTextInput
           editable={false}
           pointerEvents="none"
           defaultValue={group(reduced ? magnitude : 0)}

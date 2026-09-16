@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { LayoutChangeEvent, Pressable, View } from "react-native";
-import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
+import { useAnimatedStyle, withTiming } from "react-native-reanimated";
 
+import { MotionView } from "@/lib/animated";
 import { motion, shadow } from "@/theme/tokens";
 import { Text } from "./Text";
 
@@ -47,7 +48,7 @@ export function SegmentedControl<T extends string>({
           written by Reanimated (`thumbStyle`) every frame it's sliding — see
           the `shadow` token's docblock in theme/tokens.ts. */}
       {segmentWidth > 0 && (
-        <Animated.View
+        <MotionView
           className="absolute rounded-pill bg-elevated"
           style={[{ top: 3, bottom: 3, left: 3 }, thumbStyle, shadow.whisper]}
         />
