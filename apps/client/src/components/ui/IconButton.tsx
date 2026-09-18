@@ -8,10 +8,17 @@ import { colors, shadow } from "@/theme/tokens";
 
 const SIZE = 44;
 
+/** The circle stays neutral either way; only the glyph carries the warning. */
+const TONE = {
+  ink: colors.ink,
+  error: colors.error,
+} as const;
+
 interface IconButtonProps extends Omit<PressableProps, "children" | "style"> {
   icon: keyof typeof Feather.glyphMap;
   /** Required — there's no visible label to fall back on for a11y. */
   accessibilityLabel: string;
+  tone?: keyof typeof TONE;
   className?: string;
 }
 
@@ -24,7 +31,7 @@ interface IconButtonProps extends Omit<PressableProps, "children" | "style"> {
  * Android-safe pattern used by the tab-bar FAB, Card, Switch's thumb, and
  * ComparisonSlider's handle. See the doc-block on `shadow` in tokens.ts.
  */
-export function IconButton({ icon, disabled, className, ...rest }: IconButtonProps) {
+export function IconButton({ icon, tone = "ink", disabled, className, ...rest }: IconButtonProps) {
   const press = usePressScale();
 
   return (
@@ -36,7 +43,7 @@ export function IconButton({ icon, disabled, className, ...rest }: IconButtonPro
       style={[press.style, shadow.whisper, { width: SIZE, height: SIZE, borderRadius: SIZE / 2 }]}
       {...rest}
     >
-      <Feather name={icon} size={20} color={colors.ink} />
+      <Feather name={icon} size={20} color={TONE[tone]} />
     </MotionPressable>
   );
 }

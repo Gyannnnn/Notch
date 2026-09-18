@@ -1,7 +1,7 @@
 import Feather from "@expo/vector-icons/Feather";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { FadeIn, FadeInDown } from "react-native-reanimated";
 
@@ -13,12 +13,19 @@ import { IconButton } from "@/components/ui/IconButton";
 import { Screen } from "@/components/ui/Screen";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Text } from "@/components/ui/Text";
-import { useComparison, usePhotos, useUser, type ComparisonRange } from "@/hooks/data";
+import {
+  useComparison,
+  usePhotoSessions,
+  usePhotos,
+  useUser,
+  type ComparisonRange,
+  type PhotoSession,
+} from "@/hooks/data";
 import { MotionView } from "@/lib/animated";
 import { formatDuration, formatShortDate } from "@/lib/date";
 import { defaultUnits, formatWeight, formatWeightDelta } from "@/lib/units";
-import { colors, curve, radius, spacing } from "@/theme/tokens";
-import type { Goal, ProgressPhoto } from "@/types/domain";
+import { colors, spacing } from "@/theme/tokens";
+import type { Goal } from "@/types/domain";
 
 const RANGES: { value: ComparisonRange; label: string }[] = [
   { value: "2w", label: "2 weeks" },
@@ -63,21 +70,15 @@ export default function ProgressScreen() {
   const router = useRouter();
   const [range, setRange] = useState<ComparisonRange>("1m");
   const { data: photos } = usePhotos();
+  const { data: sessions } = usePhotoSessions();
   const { data: comparison } = useComparison(range);
   const { data: user } = useUser();
   const unit = defaultUnits(user.region).weight;
 
   const capture = () => router.push("/(modals)/photo-capture");
 
-  /** Newest first — the gallery reads as a feed, most recent at the top. */
-  const sorted = useMemo(
-    () =>
-      [...photos].sort(
-        (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
-      ),
-    [photos],
-  );
-  const oldest = sorted[sorted.length - 1];
+  /** Sessions arrive newest first — the gallery reads as a feed. */
+  const oldest = sessions[sessions.length - 1];
 
   if (photos.length === 0) {
     return (
@@ -173,20 +174,23 @@ export default function ProgressScreen() {
           </View>
 
           <View style={gridRow}>
-            {sorted.map((photo, index) => (
-              <PhotoTile
-                key={photo.id}
-                photo={photo}
+            {sessions.map((session, index) => (
+              <SessionTile
+                key={session.key}
+                session={session}
                 unit={unit}
                 index={index}
                 onPress={() =>
-                  router.push({ pathname: "/(modals)/photo-detail", params: { id: photo.id } })
+                  router.push({
+                    pathname: "/(modals)/photo-detail",
+                    params: { id: session.cover.id },
+                  })
                 }
               />
             ))}
             {/* Always the last cell: the primary action stays in reach, and a
                 partial final row reads as deliberate rather than truncated. */}
-            <AddTile index={sorted.length} onPress={capture} />
+            <AddTile index={sessions.length} onPress={capture} />
           </View>
         </View>
       </View>
@@ -219,17 +223,25 @@ function Header({
   );
 }
 
-function PhotoTile({
-  photo,
+/**
+ * One tile per day's shoot, not per frame — the detail pager pages by day, and
+ * a grid that counted frames would scroll past entries the grid never showed.
+ * Square corners throughout: a contact sheet of square cells reads as one
+ * surface, where rounded ones read as a row of separate cards.
+ */
+function SessionTile({
+  session,
   unit,
   index,
   onPress,
 }: {
-  photo: ProgressPhoto;
+  session: PhotoSession;
   unit: ReturnType<typeof defaultUnits>["weight"];
   index: number;
   onPress: () => void;
 }) {
+  const angles = session.photos.length;
+
   return (
     <MotionView
       entering={FadeInDown.duration(220).delay(Math.min(index, 8) * 30)}
@@ -237,25 +249,44 @@ function PhotoTile({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Photo from ${formatShortDate(photo.capturedAt)}`}
+        accessibilityLabel={
+          angles > 1
+            ? `${angles} photos from ${formatShortDate(session.capturedAt)}`
+            : `Photo from ${formatShortDate(session.capturedAt)}`
+        }
         onPress={onPress}
         className="gap-xxs active:opacity-80"
       >
-        <Image
-          source={photo.uri}
-          style={{ width: "100%", aspectRatio: 0.8, borderRadius: radius.sm }}
-          contentFit="cover"
-        />
+        <View>
+          <Image
+            source={session.cover.uri}
+            style={{ width: "100%", aspectRatio: 0.8 }}
+            contentFit="cover"
+          />
+          {/* Same signal a photo app's carousel post carries: this cell holds
+              more than the frame on top of it. */}
+          {angles > 1 && (
+            <View
+              className="absolute right-xxs top-xxs row gap-xxs rounded-pill p-xxs"
+              style={{ backgroundColor: colors["photo-scrim"] }}
+            >
+              <Feather name="layers" size={10} color={colors["on-ink"]} />
+              <Text variant="label-sm" color="on-ink" tabular>
+                {angles}
+              </Text>
+            </View>
+          )}
+        </View>
         {/* One caption line per tile: date pinned left, weight pinned right, so
             the numbers line up down each column. `shrink` keeps a long date from
             pushing the weight out of a ~100px cell instead of both truncating. */}
         <View className="row-between gap-xxs">
           <Text variant="label-sm" numberOfLines={1} className="shrink">
-            {formatShortDate(photo.capturedAt)}
+            {formatShortDate(session.capturedAt)}
           </Text>
-          {photo.weightKgAtCapture !== null && (
+          {session.weightKgAtCapture !== null && (
             <Text variant="body-sm" color="mute" tabular numberOfLines={1}>
-              {formatWeight(photo.weightKgAtCapture, unit)}
+              {formatWeight(session.weightKgAtCapture, unit)}
             </Text>
           )}
         </View>
@@ -275,7 +306,7 @@ function AddTile({ index, onPress }: { index: number; onPress: () => void }) {
         accessibilityLabel="Add photo"
         onPress={onPress}
         className="center border border-dashed border-hairline-strong bg-elevated active:bg-sunken"
-        style={[{ width: "100%", aspectRatio: 0.8, borderRadius: radius.sm }, curve]}
+        style={{ width: "100%", aspectRatio: 0.8 }}
       >
         <Feather name="plus" size={22} color={colors.faint} />
       </Pressable>

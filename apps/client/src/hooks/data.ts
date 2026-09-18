@@ -12,6 +12,7 @@ import type {
   ProgressPhoto,
   User,
 } from "@/types/domain";
+import { PHOTO_ANGLES } from "@/types/domain";
 import { adherenceForDays, adherenceState, logsForDate, type AdherenceDay } from "@/lib/adherence";
 import { daysBetween, localDateKey, recentWeekDateKeys } from "@/lib/date";
 import { dayRecap, pickInsight } from "@/lib/insights";
@@ -256,6 +257,80 @@ export function usePhoto(id: string | undefined): Query<ProgressPhoto | null> {
   return ready(useMemo(() => photos.find((photo) => photo.id === id) ?? null, [photos, id]));
 }
 
+export interface PhotoSlide {
+  angle: PhotoAngle;
+  /** null where that angle was never shot on this day — an empty slot, not a gap. */
+  photo: ProgressPhoto | null;
+}
+
+export interface PhotoSession {
+  /** Local day key. One session per day. */
+  key: string;
+  capturedAt: string;
+  photos: ProgressPhoto[];
+  /** Always in PHOTO_ANGLES order, so slide N is the same angle on every day. */
+  slides: PhotoSlide[];
+  /** The frame the gallery shows for the day. */
+  cover: ProgressPhoto;
+  weightKgAtCapture: number | null;
+}
+
+/**
+ * A day's shoot rather than a single frame. Front/side/back taken the same day
+ * are one thing the user swipes across, and both the gallery tile and the
+ * detail pager have to agree on that — group it once here, or the grid and the
+ * pager end up with different numbers of entries and scrolling the pager lands
+ * somewhere the grid never showed.
+ *
+ * Newest day first, matching the gallery's feed order.
+ */
+export function usePhotoSessions(): Query<PhotoSession[]> {
+  const photos = useMockState(selectPhotos);
+
+  return ready(
+    useMemo(() => {
+      const byDay = new Map<string, ProgressPhoto[]>();
+      for (const photo of photos) {
+        const key = localDateKey(photo.capturedAt);
+        const bucket = byDay.get(key);
+        if (bucket) bucket.push(photo);
+        else byDay.set(key, [photo]);
+      }
+
+      const sessions: PhotoSession[] = [];
+      for (const [key, taken] of byDay) {
+        // Every angle gets a slide. Shooting the same angle twice in a day adds
+        // slides rather than replacing one, so no frame becomes unreachable —
+        // and therefore undeletable — just because it shares an angle.
+        const slides: PhotoSlide[] = PHOTO_ANGLES.flatMap((angle): PhotoSlide[] => {
+          const forAngle = taken
+            .filter((photo) => photo.angle === angle)
+            .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+          return forAngle.length > 0
+            ? forAngle.map((photo) => ({ angle, photo }))
+            : [{ angle, photo: null }];
+        });
+
+        const ordered = slides.flatMap((slide) => (slide.photo ? [slide.photo] : []));
+        const cover = ordered[0];
+        if (!cover) continue;
+
+        sessions.push({
+          key,
+          capturedAt: cover.capturedAt,
+          photos: ordered,
+          slides,
+          cover,
+          weightKgAtCapture:
+            ordered.find((photo) => photo.weightKgAtCapture !== null)?.weightKgAtCapture ?? null,
+        });
+      }
+
+      return sessions.sort((a, b) => b.key.localeCompare(a.key));
+    }, [photos]),
+  );
+}
+
 export type ComparisonRange = "2w" | "1m" | "oldest";
 
 export const COMPARISON_RANGE_DAYS: Record<ComparisonRange, number | null> = {
@@ -285,12 +360,22 @@ export function useComparison(range: ComparisonRange = "1m"): Query<Comparison |
       const sorted = [...photos].sort(
         (a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime(),
       );
-      const to = sorted[sorted.length - 1]!;
+
+      // Wiping a front shot into a side one shows a change the body never made,
+      // so a comparison only ever pairs frames of the same angle. The angle with
+      // the most frames wins, ties going to the earliest in PHOTO_ANGLES order
+      // (front), which is both the deliberate default and the one users shoot.
+      const series = PHOTO_ANGLES.map((angle) =>
+        sorted.filter((photo) => photo.angle === angle),
+      ).reduce((best, group) => (group.length > best.length ? group : best), [] as ProgressPhoto[]);
+      if (series.length < 2) return null;
+
+      const to = series[series.length - 1]!;
       const targetDays = COMPARISON_RANGE_DAYS[range];
 
-      let from = sorted[0]!;
+      let from = series[0]!;
       if (targetDays !== null) {
-        const candidates = sorted.slice(0, -1);
+        const candidates = series.slice(0, -1);
         from = candidates.reduce((best, photo) => {
           const bestGap = Math.abs(daysBetween(best.capturedAt, to.capturedAt) - targetDays);
           const gap = Math.abs(daysBetween(photo.capturedAt, to.capturedAt) - targetDays);
